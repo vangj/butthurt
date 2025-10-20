@@ -434,7 +434,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "PART V - NARRATIVE (Tell us in your own sissy words how your feelings were hurt.)",
     )
-    narrative_height = 50
+    narrative_height = 64
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
     page.draw_rect(narrative_rect, color=BLACK, width=1)
     add_textarea_widget(page, narrative_rect, "part5_narrative")
