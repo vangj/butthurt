@@ -93,7 +93,8 @@ def draw_checkbox_line(
     y: float,
     question: str,
     options: list[str],
-    ) -> float:
+    field_name: str,
+) -> float:
     insert_text(
         page,
         pm.Rect(left + 4, y, right - 4, y + 26),
@@ -104,9 +105,20 @@ def draw_checkbox_line(
     box_y = y + 22
     x = left + 8
     box_size = 10
+    radius = box_size / 2
     for option in options:
         box_rect = pm.Rect(x, box_y, x + box_size, box_y + box_size)
-        page.draw_rect(box_rect, color=BLACK, width=1)
+        center = (box_rect.x0 + radius, box_rect.y0 + radius)
+        page.draw_circle(center, radius, color=BLACK, width=1)
+        widget = pm.Widget()
+        widget.field_name = field_name
+        widget.field_type = pm.PDF_WIDGET_TYPE_RADIOBUTTON
+        widget.rect = box_rect
+        widget.field_value = False
+        widget.field_label = option
+        widget.border_color = BLACK
+        widget.fill_color = (1, 1, 1)
+        page.add_widget(widget)
         insert_text(
             page,
             pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 150, box_rect.y1 + 10),
@@ -325,6 +337,7 @@ def build_form(page: pm.Page) -> None:
         y + 4,
         "1. WHICH EAR WERE THE WORDS OF HURTFULNESS SPOKEN INTO?",
         ["LEFT", "RIGHT", "BOTH"],
+        "part3_question1",
     )
     y = draw_checkbox_line(
         page,
@@ -333,6 +346,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "2. IS THERE PERMANENT FEELING DAMAGE?",
         ["YES", "NO", "MAYBE"],
+        "part3_question2",
     )
     y = draw_checkbox_line(
         page,
@@ -341,6 +355,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "3. DID YOU REQUIRE A \"TISSUE\" FOR TEARS?",
         ["YES", "NO", "MULTIPLE"],
+        "part3_question3",
     )
     y = draw_checkbox_line(
         page,
@@ -349,6 +364,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "4. HAS THIS RESULTED IN A TRAUMATIC BRAIN INJURY?",
         ["YES", "NO", "MAYBE"],
+        "part3_question4",
     )
 
     y = draw_section_header(
