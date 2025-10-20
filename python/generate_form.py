@@ -45,6 +45,19 @@ TEXT_TOOLTIPS: dict[str, str] = {
 
 _TOOLTIP_QUEUE: defaultdict[str, list[str]] = defaultdict(list)
 
+
+def _sanitize_radio_export(value: str, used: set[str]) -> str:
+    """Convert an option label into a safe PDF name and keep it unique per group."""
+    sanitized = re.sub(r"[^A-Za-z0-9]+", "_", value.strip())
+    sanitized = sanitized.strip("_") or "Option"
+    candidate = sanitized
+    index = 1
+    while candidate in used:
+        candidate = f"{sanitized}_{index}"
+        index += 1
+    used.add(candidate)
+    return candidate
+
 WIDGET_TYPE_MAP = {
     pm.PDF_WIDGET_TYPE_BUTTON: "button",
     pm.PDF_WIDGET_TYPE_CHECKBOX: "checkbox",
@@ -200,6 +213,223 @@ def export_metadata(metadata: list[dict[str, object]], pdf_path: str) -> None:
                 ]
             )
 
+
+def _ensure_acroform_xref(doc: pm.Document) -> int:
+    catalog_xref = doc.pdf_catalog()
+    acroform_ref = doc.xref_get_key(catalog_xref, "AcroForm")
+    if not acroform_ref or acroform_ref[0] is None:
+        raise RuntimeError("Document is missing an AcroForm dictionary.")
+    if acroform_ref[0] == "dict":
+        new_xref = doc.get_new_xref()
+        doc.update_object(new_xref, acroform_ref[1])
+        doc.xref_set_key(catalog_xref, "AcroForm", f"{new_xref} 0 R")
+        return new_xref
+    if acroform_ref[0] == "xref":
+        return int(acroform_ref[1].split()[0])
+    raise RuntimeError(f"Unsupported AcroForm reference type: {acroform_ref[0]}")
+
+
+def _parse_ref_array(array_str: str) -> list[str]:
+    return re.findall(r"\d+\s+\d+\s+R", array_str)
+
+
+def _format_ref_array(refs: list[str]) -> str:
+    return f"[{' '.join(refs)}]" if refs else "[]"
+
+
+def _replace_on_state_in_dict(ap_dict_str: str, new_state: str) -> tuple[str, bool]:
+    match = re.search(r"(/N\s*<<)(.*?)(>>)", ap_dict_str, re.DOTALL)
+    if not match:
+        return ap_dict_str, False
+    prefix, inner, suffix = match.groups()
+    replaced = False
+
+    def repl(m: re.Match) -> str:
+        nonlocal replaced
+        name, ref = m.group(1), m.group(2)
+        if name == "Off" or replaced:
+            return m.group(0)
+        replaced = True
+        return f"/{new_state} {ref}"
+
+    updated_inner = re.sub(r"/([^/\s]+)\s+(\d+\s+\d+\s+R)", repl, inner)
+    if not replaced:
+        return ap_dict_str, False
+    updated = f"{prefix}{updated_inner}{suffix}"
+    return ap_dict_str[: match.start()] + updated + ap_dict_str[match.end():], True
+
+
+def _rename_widget_on_state(doc: pm.Document, widget_xref: int, new_state: str) -> None:
+    ap_ref = doc.xref_get_key(widget_xref, "AP")
+    if not ap_ref or ap_ref[0] is None:
+        return
+    if ap_ref[0] == "dict":
+        updated, changed = _replace_on_state_in_dict(ap_ref[1], new_state)
+        if changed:
+            doc.xref_set_key(widget_xref, "AP", updated)
+    elif ap_ref[0] == "xref":
+        ap_xref = int(ap_ref[1].split()[0])
+        ap_dict = doc.xref_object(ap_xref)
+        updated, changed = _replace_on_state_in_dict(ap_dict, new_state)
+        if changed:
+            doc.update_object(ap_xref, updated)
+
+
+def _rects_close(rect: pm.Rect, stored_rect: tuple[float, float, float, float], tol: float = 0.05) -> bool:
+    x0, y0, x1, y1 = stored_rect
+    return (
+        abs(rect.x0 - x0) <= tol
+        and abs(rect.y0 - y0) <= tol
+        and abs(rect.x1 - x1) <= tol
+        and abs(rect.y1 - y1) <= tol
+    )
+
+
+def _pop_matching_update(
+    entries: list[dict[str, object]] | None, rect: pm.Rect, page_index: int
+) -> dict[str, object] | None:
+    if not entries:
+        return None
+    for idx, entry in enumerate(entries):
+        stored_rect = entry.get("rect")
+        entry_page = entry.get("page_index")
+        if stored_rect and _rects_close(rect, stored_rect) and (
+            entry_page is None or entry_page == page_index
+        ):
+            return entries.pop(idx)
+    return entries.pop(0) if entries else None
+
+
+def fix_radio_button_groups(doc: pm.Document, updates: list[dict[str, object]]) -> None:
+    if not updates:
+        return
+
+    updates_by_field: defaultdict[str, list[dict[str, object]]] = defaultdict(list)
+    fallback_updates: list[dict[str, object]] = []
+    for index, entry in enumerate(updates):
+        if not isinstance(entry, dict):
+            continue
+        normalized = dict(entry)
+        normalized.setdefault("order", index)
+        rect = normalized.get("rect")
+        if rect:
+            normalized["rect"] = tuple(float(value) for value in rect)
+        else:
+            normalized["rect"] = None
+        page_idx = normalized.get("page_index")
+        normalized["page_index"] = int(page_idx) if isinstance(page_idx, int) else None
+        field_name = normalized.get("field_name") or ""
+        if field_name:
+            updates_by_field[field_name].append(normalized)
+        else:
+            fallback_updates.append(normalized)
+
+    for entries in updates_by_field.values():
+        entries.sort(key=lambda item: item.get("order", 0))
+    fallback_updates.sort(key=lambda item: item.get("order", 0))
+
+    try:
+        acroform_xref = _ensure_acroform_xref(doc)
+    except RuntimeError:
+        return
+
+    fields_ref = doc.xref_get_key(acroform_xref, "Fields")
+    if not fields_ref or fields_ref[0] != "array":
+        fields_entries: list[str] = []
+    else:
+        fields_entries = _parse_ref_array(fields_ref[1])
+
+    groups: defaultdict[str, list[tuple[pm.Widget, dict[str, object], int]]] = defaultdict(list)
+    for page_index, page in enumerate(doc):
+        for widget in page.widgets():
+            if widget.field_type != pm.PDF_WIDGET_TYPE_RADIOBUTTON:
+                continue
+            initial_field = widget.field_name or ""
+            entry = _pop_matching_update(updates_by_field.get(initial_field), widget.rect, page_index)
+            resolved_field = initial_field
+
+            if entry is None:
+                for candidate_field, candidate_entries in updates_by_field.items():
+                    if candidate_field == initial_field:
+                        continue
+                    candidate_entry = _pop_matching_update(candidate_entries, widget.rect, page_index)
+                    if candidate_entry:
+                        entry = candidate_entry
+                        resolved_field = candidate_field
+                        break
+
+            if entry is None:
+                entry = _pop_matching_update(fallback_updates, widget.rect, page_index)
+
+            if entry is None:
+                entry = {"export": "", "order": 0, "field_name": resolved_field or f"field_{widget.xref}"}
+
+            resolved_field = resolved_field or entry.get("field_name") or f"field_{widget.xref}"
+            groups[resolved_field].append((widget, entry, page_index))
+
+    fields_modified = False
+    for field_name, items in groups.items():
+        if not items:
+            continue
+        items.sort(
+            key=lambda item: (
+                item[1].get("order", 0),
+                round(item[0].rect.y0, 2),
+                round(item[0].rect.x0, 2),
+                item[0].xref,
+            )
+        )
+
+        child_refs = [f"{widget.xref} 0 R" for widget, _, _ in items]
+        remove_refs = set(child_refs)
+        for widget, _, _ in items:
+            parent_ref = doc.xref_get_key(widget.xref, "Parent")
+            if parent_ref and parent_ref[0] == "xref":
+                remove_refs.add(parent_ref[1])
+
+        parent_xref = doc.get_new_xref()
+        parent_ref_str = f"{parent_xref} 0 R"
+
+        indices = [i for i, ref in enumerate(fields_entries) if ref in remove_refs]
+        insert_at = min(indices) if indices else len(fields_entries)
+        if remove_refs:
+            fields_entries = [ref for ref in fields_entries if ref not in remove_refs]
+        fields_entries.insert(insert_at, parent_ref_str)
+
+        first_widget = items[0][0]
+        field_flags = int(getattr(first_widget, "field_flags", 0))
+        da_ref = doc.xref_get_key(first_widget.xref, "DA")
+        da_value = da_ref[1] if da_ref and da_ref[0] == "string" else None
+
+        kids_array = _format_ref_array(child_refs)
+        parent_parts = [
+            "/FT /Btn",
+            f"/T ({field_name})",
+            f"/Ff {field_flags}",
+            f"/Kids {kids_array}",
+            "/V /Off",
+            "/DV /Off",
+        ]
+        if da_value:
+            parent_parts.append(f"/DA ({da_value})")
+        doc.update_object(parent_xref, f"<< {' '.join(parent_parts)} >>")
+        fields_modified = True
+
+        for widget, entry, _ in items:
+            export_name = str(entry.get("export", "") or "")
+            if export_name:
+                _rename_widget_on_state(doc, widget.xref, export_name)
+            doc.xref_set_key(widget.xref, "Parent", parent_ref_str)
+            doc.xref_set_key(widget.xref, "T", "null")
+            doc.xref_set_key(widget.xref, "V", "null")
+            doc.xref_set_key(widget.xref, "DV", "null")
+            doc.xref_set_key(widget.xref, "Kids", "null")
+            doc.xref_set_key(widget.xref, "AS", "/Off")
+
+    if fields_modified:
+        doc.xref_set_key(acroform_xref, "Fields", _format_ref_array(fields_entries))
+
+
 def inset_rect(rect: pm.Rect, dx: float = 4, dy: float = 4) -> pm.Rect:
     return pm.Rect(rect.x0 + dx, rect.y0 + dy, rect.x1 - dx, rect.y1 - dy)
 
@@ -323,22 +553,54 @@ def draw_checkbox_line(
     question_number = question_match.group(1) if question_match else ""
     # Store widget info to update after all are added
     widgets_to_update = []
+    export_names_used: set[str] = set()
     
-    for idx, option in enumerate(options):
+    # Create the first radio button - this establishes the parent field
+    first_option = options[0]
+    box_rect = pm.Rect(x, box_y, x + box_size, box_y + box_size)
+    center = (box_rect.x0 + radius, box_rect.y0 + radius)
+    page.draw_circle(center, radius, color=BLACK, width=1)
+    widget = pm.Widget()
+    widget.field_name = field_name
+    widget.field_type = pm.PDF_WIDGET_TYPE_RADIOBUTTON
+    widget.button_caption = first_option
+    widget.rect = box_rect
+    widget.field_value = False
+    widget.border_color = BLACK
+    widget.fill_color = (1, 1, 1)
+    page.add_widget(widget)
+    first_export = _sanitize_radio_export(first_option, export_names_used)
+    widgets_to_update.append((widget, first_export, first_option))
+    
+    tooltip = f"{part_label}, Question {question_number}, Option is {first_option}"
+    _TOOLTIP_QUEUE[field_name].append(tooltip)
+    insert_text(
+        page,
+        pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 150, box_rect.y1 + 10),
+        first_option,
+        size=8,
+    )
+    x = box_rect.x1 + 150
+    
+    # Now add the remaining options to the same field by creating widget annotations
+    # that reference the parent field
+    for idx, option in enumerate(options[1:], start=1):
         box_rect = pm.Rect(x, box_y, x + box_size, box_y + box_size)
         center = (box_rect.x0 + radius, box_rect.y0 + radius)
         page.draw_circle(center, radius, color=BLACK, width=1)
         widget = pm.Widget()
         widget.field_name = field_name
         widget.field_type = pm.PDF_WIDGET_TYPE_RADIOBUTTON
+        widget.button_caption = option
         widget.rect = box_rect
-        widget.field_value = False  # Not selected by default
+        widget.field_value = False
         widget.border_color = BLACK
         widget.fill_color = (1, 1, 1)
         page.add_widget(widget)
         
         # Store the widget and its desired on-state value for later update
-        widgets_to_update.append((widget, option))
+        export_name = _sanitize_radio_export(option, export_names_used)
+        widgets_to_update.append((widget, export_name, option))
         
         tooltip = f"{part_label}, Question {question_number}, Option is {option}"
         _TOOLTIP_QUEUE[field_name].append(tooltip)
@@ -355,8 +617,21 @@ def draw_checkbox_line(
     if not hasattr(doc, '_radio_button_updates'):
         doc._radio_button_updates = []
     
-    for widget, on_state_value in widgets_to_update:
-        doc._radio_button_updates.append((widget.xref, on_state_value))
+    page_index = page.number
+    for widget, export_name, label in widgets_to_update:
+        order = len(doc._radio_button_updates)
+        rect_tuple = (float(widget.rect.x0), float(widget.rect.y0), float(widget.rect.x1), float(widget.rect.y1))
+        doc._radio_button_updates.append(
+            {
+                "widget_xref": widget.xref,
+                "field_name": field_name,
+                "export": export_name,
+                "label": label,
+                "order": order,
+                "page_index": page_index,
+                "rect": rect_tuple,
+            }
+        )
     
     return box_y + box_size + 4
 
@@ -860,24 +1135,7 @@ def main(output_path: str = "blank_form.pdf") -> None:
                 signature_font_size,
             )
     
-    # Fix radio button on-states after document is saved and reopened
-    # We need to match widgets by their position/index since xrefs change
-    page = post_doc[0]
-    radio_widgets = [w for w in page.widgets() if w.field_type == pm.PDF_WIDGET_TYPE_RADIOBUTTON]
-    
-    if len(radio_widgets) == len(radio_button_updates):
-        for widget, (_, on_state_value) in zip(radio_widgets, radio_button_updates):
-            try:
-                # Simply replace "Yes" with the custom on-state name in the AP dictionary
-                # Don't create new xrefs - just rename the state
-                ap_ref = post_doc.xref_get_key(widget.xref, "AP")
-                if ap_ref[0] == "dict":
-                    ap_dict_str = ap_ref[1]
-                    # Replace /Yes with /{on_state_value} - this renames the button state
-                    updated_ap = ap_dict_str.replace("/Yes", f"/{on_state_value}")
-                    post_doc.xref_set_key(widget.xref, "AP", updated_ap)
-            except Exception as e:
-                print(f"Failed to update radio button on-state: {e}")
+    fix_radio_button_groups(post_doc, radio_button_updates)
     
     # Save to temporary file then replace the original
     temp_path = f"{output_path}.tmp"
