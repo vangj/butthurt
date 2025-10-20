@@ -868,12 +868,12 @@ def main(output_path: str = "blank_form.pdf") -> None:
     if len(radio_widgets) == len(radio_button_updates):
         for widget, (_, on_state_value) in zip(radio_widgets, radio_button_updates):
             try:
-                # Get the current AP (appearance) dictionary
+                # Simply replace "Yes" with the custom on-state name in the AP dictionary
+                # Don't create new xrefs - just rename the state
                 ap_ref = post_doc.xref_get_key(widget.xref, "AP")
                 if ap_ref[0] == "dict":
-                    # Parse the appearance dict and replace "Yes" with the custom on-state
                     ap_dict_str = ap_ref[1]
-                    # Replace /Yes with /{on_state_value}
+                    # Replace /Yes with /{on_state_value} - this renames the button state
                     updated_ap = ap_dict_str.replace("/Yes", f"/{on_state_value}")
                     post_doc.xref_set_key(widget.xref, "AP", updated_ap)
             except Exception as e:
