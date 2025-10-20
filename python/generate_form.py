@@ -21,11 +21,11 @@ def insert_text(
 
 
 def draw_section_header(page: pm.Page, left: float, right: float, y: float, text: str) -> float:
-    rect = pm.Rect(left, y, right, y + 36)
+    rect = pm.Rect(left, y, right, y + 28)
     page.draw_rect(rect, color=BLACK)
     insert_text(
         page,
-        rect,
+        pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 4),
         text,
         font="Helvetica-Bold",
         size=11,
@@ -198,7 +198,7 @@ def build_form(page: pm.Page) -> None:
 
     y = top
 
-    header_height = 64
+    header_height = 54
     header_rect = pm.Rect(left, y, right, y + header_height)
     page.insert_textbox(
         header_rect,
@@ -211,7 +211,7 @@ def build_form(page: pm.Page) -> None:
     y += header_height
     page.draw_line((left, y), (right, y))
 
-    info_height = 36
+    info_height = 28
     info_rect = pm.Rect(left, y, right, y + info_height)
     page.draw_rect(info_rect, color=BLACK, width=1)
     insert_text(
