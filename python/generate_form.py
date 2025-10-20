@@ -1,5 +1,8 @@
+import csv
+import json
 import re
 from collections import defaultdict, deque
+from pathlib import Path
 
 import pymupdf as pm
 
@@ -31,6 +34,17 @@ TEXT_TOOLTIPS: dict[str, str] = {
 }
 
 _TOOLTIP_QUEUE: defaultdict[str, list[str]] = defaultdict(list)
+
+WIDGET_TYPE_MAP = {
+    pm.PDF_WIDGET_TYPE_BUTTON: "button",
+    pm.PDF_WIDGET_TYPE_CHECKBOX: "checkbox",
+    pm.PDF_WIDGET_TYPE_RADIOBUTTON: "radiobutton",
+    pm.PDF_WIDGET_TYPE_TEXT: "text",
+    pm.PDF_WIDGET_TYPE_LISTBOX: "listbox",
+    pm.PDF_WIDGET_TYPE_COMBOBOX: "combobox",
+    pm.PDF_WIDGET_TYPE_SIGNATURE: "signature",
+    pm.PDF_WIDGET_TYPE_UNKNOWN: "unknown",
+}
 
 
 def part_label_from_field(field_name: str) -> str:
@@ -72,6 +86,106 @@ def apply_tooltips(page: pm.Page) -> None:
             widget.update()
     _TOOLTIP_QUEUE.clear()
 
+
+def collect_metadata(doc: pm.Document) -> list[dict[str, object]]:
+    metadata: list[dict[str, object]] = []
+    for page_index in range(len(doc)):
+        page = doc[page_index]
+        widgets = list(page.widgets())
+        if not widgets:
+            continue
+        for widget in widgets:
+            rect = widget.rect
+            widget_type = WIDGET_TYPE_MAP.get(widget.field_type, str(widget.field_type))
+            flags = widget.field_flags
+            readonly = bool(flags & 1)
+            tooltip = widget.field_label or ""
+            on_value = ""
+            export_values = ""
+
+            if widget.field_type in (
+                pm.PDF_WIDGET_TYPE_BUTTON,
+                pm.PDF_WIDGET_TYPE_CHECKBOX,
+                pm.PDF_WIDGET_TYPE_RADIOBUTTON,
+            ):
+                try:
+                    on_state = widget.on_state()
+                    if on_state not in (None, False, "Off"):
+                        on_value = str(on_state)
+                except Exception:
+                    on_value = ""
+                try:
+                    states = widget.button_states()
+                    if states:
+                        export_values = json.dumps(states)
+                except Exception:
+                    export_values = ""
+            elif widget.field_type in (
+                pm.PDF_WIDGET_TYPE_COMBOBOX,
+                pm.PDF_WIDGET_TYPE_LISTBOX,
+            ):
+                values = getattr(widget, "choice_values", None)
+                if values:
+                    export_values = json.dumps(values)
+
+            metadata.append(
+                {
+                    "page": page_index + 1,
+                    "name": widget.field_name,
+                    "type": widget_type,
+                    "x0": rect.x0,
+                    "y0": rect.y0,
+                    "x1": rect.x1,
+                    "y1": rect.y1,
+                    "flags": flags,
+                    "readonly": readonly,
+                    "tooltip": tooltip,
+                    "on_value": on_value,
+                    "export_values": export_values,
+                    "xref": widget.xref,
+                }
+            )
+    return metadata
+
+
+def export_metadata(metadata: list[dict[str, object]], pdf_path: str) -> None:
+    csv_path = Path(pdf_path).with_suffix(".csv")
+    header = [
+        "page",
+        "name",
+        "type",
+        "x0",
+        "y0",
+        "x1",
+        "y1",
+        "flags",
+        "readonly",
+        "tooltip",
+        "on_value",
+        "export_values",
+        "xref",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
+        writer.writerow(header)
+        for row in metadata:
+            writer.writerow(
+                [
+                    row["page"],
+                    row["name"],
+                    row["type"],
+                    f"{row['x0']:.2f}",
+                    f"{row['y0']:.2f}",
+                    f"{row['x1']:.2f}",
+                    f"{row['y1']:.2f}",
+                    row["flags"],
+                    row["readonly"],
+                    row["tooltip"],
+                    row["on_value"],
+                    row["export_values"],
+                    row["xref"],
+                ]
+            )
 
 def inset_rect(rect: pm.Rect, dx: float = 4, dy: float = 4) -> pm.Rect:
     return pm.Rect(rect.x0 + dx, rect.y0 + dy, rect.x1 - dx, rect.y1 - dy)
@@ -559,7 +673,9 @@ def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
     page = doc.new_page()
     build_form(page)
+    metadata = collect_metadata(doc)
     doc.save(output_path)
+    export_metadata(metadata, output_path)
     doc.close()
 
 
