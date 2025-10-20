@@ -207,6 +207,21 @@ def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
     page.add_widget(widget)
 
 
+def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
+    field_rect = pm.Rect(rect.x0 + 6, rect.y0 + 6, rect.x1 - 6, rect.y1 - 6)
+    widget = pm.Widget()
+    widget.field_name = field_name
+    widget.field_type = pm.PDF_WIDGET_TYPE_TEXT
+    widget.rect = field_rect
+    widget.text_font = "Helvetica"
+    widget.text_fontsize = 10
+    widget.text_color = BLACK
+    widget.border_color = BLACK
+    widget.border_width = 0
+    widget.field_flags = pm.PDF_TX_FIELD_IS_MULTILINE
+    page.add_widget(widget)
+
+
 def build_form(page: pm.Page) -> None:
     width = page.rect.width
     height = page.rect.height
@@ -416,6 +431,7 @@ def build_form(page: pm.Page) -> None:
     narrative_height = 50
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
     page.draw_rect(narrative_rect, color=BLACK, width=1)
+    add_textarea_widget(page, narrative_rect, "part5_narrative")
     y = narrative_rect.y1
 
     y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
