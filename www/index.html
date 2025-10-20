@@ -444,32 +444,7 @@
       </article>
     </main>
     <script type="module">
-      import {
-        PDFDocument,
-        PDFName
-      } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
-
-      const tooltipToken = "Option is ";
-      const getTooltip = (field) => {
-        const raw = field.acroField.get(PDFName.of("TU"));
-        if (!raw) return "";
-        if (typeof raw.decodeText === "function") {
-          return raw.decodeText();
-        }
-        if (typeof raw.value === "string") {
-          return raw.value;
-        }
-        return String(raw);
-      };
-
-      const parseOption = (tooltip) => {
-        if (!tooltip) return "";
-        const idx = tooltip.lastIndexOf(tooltipToken);
-        if (idx === -1) {
-          return tooltip.trim().toLowerCase();
-        }
-        return tooltip.slice(idx + tooltipToken.length).trim().toLowerCase();
-      };
+      import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
 
       const groupFieldsByName = (form) => {
         const grouped = new Map();
@@ -481,13 +456,6 @@
           grouped.get(name).push(field);
         }
         return grouped;
-      };
-
-      const setWidgetState = (field, isSelected) => {
-        const acroField = field.acroField;
-        const stateName = PDFName.of(isSelected ? "Yes" : "Off");
-        acroField.set(PDFName.of("V"), stateName);
-        acroField.set(PDFName.of("AS"), stateName);
       };
 
       const setTextFields = (form, mappings) => {
@@ -506,6 +474,13 @@
             checkBox.uncheck();
           }
         }
+      };
+
+      const radioOptionOrder = {
+        injury_question1: ["left", "right", "both"],
+        injury_question2: ["yes", "no", "maybe"],
+        injury_question3: ["yes", "no", "multiple"],
+        injury_question4: ["yes", "no", "maybe"]
       };
 
       const button = document.getElementById("generate-btn");
@@ -573,11 +548,17 @@
 
           for (const [fieldName, selectedValue] of Object.entries(radioMappings)) {
             const options = groupedFields.get(fieldName) ?? [];
-            for (const optionField of options) {
-              const optionLabel = parseOption(getTooltip(optionField));
-              const matches = Boolean(selectedValue) && optionLabel === selectedValue.toLowerCase();
-              setWidgetState(optionField, matches);
-            }
+            const orderedLabels = radioOptionOrder[fieldName] ?? [];
+            options.forEach((optionField, index) => {
+              const targetLabel = orderedLabels[index];
+              const matches =
+                Boolean(selectedValue) && targetLabel === selectedValue.toLowerCase();
+              if (matches) {
+                optionField.check?.();
+              } else {
+                optionField.uncheck?.();
+              }
+            });
           }
 
           form.flatten();
