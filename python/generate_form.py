@@ -283,7 +283,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        34,
+        40,
         [
             ("A. WHINER'S NAME (Last, First, MI)", 0.45),
             ("B. SOCIAL SECURITY NUMBER", 0.27),
@@ -301,7 +301,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        34,
+        40,
         [
             ("D. ORGANIZATION", 0.5),
             ("E. NAME & TITLE OF PERSON FILLING OUT THIS FORM", 0.5),
@@ -319,7 +319,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        34,
+        40,
         [
             ("A. DATE FEELINGS WERE HURT", 0.33),
             ("B. TIME OF HURTFULNESS", 0.33),
@@ -341,7 +341,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        34,
+        40,
         [
             ("D. NAME OF REAL MAN/WOMAN WHO HURT YOUR SENSITIVE FEELINGS", 0.5),
             ("E. ORGANIZATION", 0.5),
@@ -442,7 +442,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        32,
+        40,
         [
             ("A. PRINTED NAME OF WHINER", 0.5),
             ("B. SIGNATURE", 0.5),
