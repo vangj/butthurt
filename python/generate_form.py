@@ -19,7 +19,7 @@ def insert_text(
 ) -> None:
     leftover = page.insert_textbox(rect, text, fontname=font, fontsize=size, align=align, color=color)
     if leftover not in (0, None, ""):
-        raise ValueError(f"Text did not fit in box: {text!r}")
+        raise ValueError(f"Text did not fit in box: {text!r} rect={rect}")
 
 
 def draw_section_header(page: pm.Page, left: float, right: float, y: float, text: str) -> float:
@@ -213,7 +213,7 @@ def build_form(page: pm.Page) -> None:
     y += header_height
     page.draw_line((left, y), (right, y))
 
-    info_height = 44
+    info_height = 32
     info_rect = pm.Rect(left, y, right, y + info_height)
     page.draw_rect(info_rect, color=BLACK, width=1)
     insert_text(
@@ -221,7 +221,7 @@ def build_form(page: pm.Page) -> None:
         inset_rect(info_rect, 6, 4),
         "DATA REQUIRED BY THE PRIVACY ACT OF 1974",
         font="Helvetica-Bold",
-        size=12,
+        size=11,
         align=pm.TEXT_ALIGN_CENTER,
     )
     y += info_height
