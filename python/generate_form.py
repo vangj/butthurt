@@ -176,8 +176,9 @@ def draw_signature_row(
     width: float,
     height: float,
     labels: list[tuple[str, float]],
-) -> float:
+) -> tuple[float, list[tuple[pm.Rect, str]]]:
     x = left
+    rects: list[tuple[pm.Rect, str]] = []
     for label, ratio in labels:
         block_width = width * ratio
         rect = pm.Rect(x, y, x + block_width, y + height)
@@ -190,7 +191,8 @@ def draw_signature_row(
             size=7,
         )
         x += block_width
-    return y + height
+        rects.append((rect, label))
+    return y + height, rects
 
 
 def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
@@ -435,7 +437,7 @@ def build_form(page: pm.Page) -> None:
     y = narrative_rect.y1
 
     y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
-    y = draw_signature_row(
+    y, auth_rects = draw_signature_row(
         page,
         left,
         y,
@@ -448,6 +450,16 @@ def build_form(page: pm.Page) -> None:
             ("D. SIGNATURE", 0.25),
         ],
     )
+    for (rect, _), name in zip(
+        auth_rects,
+        [
+            "auth_real_person",
+            "auth_real_signature",
+            "auth_whiner_name",
+            "auth_whiner_signature",
+        ],
+    ):
+        add_text_widget(page, rect, name)
 
 def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
