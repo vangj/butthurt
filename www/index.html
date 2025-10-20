@@ -162,11 +162,11 @@
             <div class="row g-3">
               <div class="col-md-5">
                 <label for="part-i-a" class="form-label">A. Whiner's Name (Last, First, MI)</label>
-                <input type="text" class="form-control" id="part-i-a" name="part_i_a" autocomplete="name">
+                <input type="text" class="form-control" id="part-i-a" name="part_i_a" autocomplete="name" required>
               </div>
               <div class="col-md-4">
                 <label for="part-i-b" class="form-label">B. Social Security Number</label>
-                <input type="text" class="form-control" id="part-i-b" name="part_i_b" inputmode="numeric">
+                <input type="text" class="form-control" id="part-i-b" name="part_i_b" inputmode="numeric" maxlength="11" pattern="[0-9]{3}-[0-9]{2}-[0-9]{4}" placeholder="555-55-1111" title="Enter Social Security Number as 555-55-1111.">
               </div>
               <div class="col-md-3">
                 <label for="part-i-c" class="form-label">C. Date Of Report</label>
@@ -204,7 +204,7 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label for="part-ii-d" class="form-label">D. Name Of Real Man/Woman Who Hurt Your Sensitive Feelings</label>
-                <input type="text" class="form-control" id="part-ii-d" name="part_ii_d" autocomplete="name">
+                <input type="text" class="form-control" id="part-ii-d" name="part_ii_d" autocomplete="name" required>
               </div>
               <div class="col-md-6">
                 <label for="part-ii-e" class="form-label">E. Organization</label>
@@ -429,7 +429,7 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label for="part-vi-a" class="form-label">A. Printed Name Of Whiner</label>
-                <input type="text" class="form-control" id="part-vi-a" name="part_vi_a" autocomplete="name">
+                <input type="text" class="form-control" id="part-vi-a" name="part_vi_a" autocomplete="name" required>
               </div>
               <div class="col-md-6">
                 <label for="part-vi-b" class="form-label">B. Signature</label>
@@ -511,10 +511,94 @@
         }
       };
 
+      const htmlForm = document.querySelector("form");
+      const whinerNameInput = document.getElementById("part-i-a");
+      const authWhinerNameInput = document.getElementById("part-vi-a");
+      const offenderInput = document.getElementById("part-ii-d");
+      const ssnInput = document.getElementById("part-i-b");
+
+      const syncFieldValue = (source, target) => {
+        if (!source || !target) return;
+        if (target.value !== source.value) {
+          target.value = source.value;
+        }
+      };
+
+      whinerNameInput?.addEventListener("input", () => {
+        syncFieldValue(whinerNameInput, authWhinerNameInput);
+      });
+
+      authWhinerNameInput?.addEventListener("input", () => {
+        syncFieldValue(authWhinerNameInput, whinerNameInput);
+      });
+
+      if (whinerNameInput && authWhinerNameInput) {
+        // Normalize initial values if one field already has data (e.g. from autofill).
+        if (whinerNameInput.value && !authWhinerNameInput.value) {
+          authWhinerNameInput.value = whinerNameInput.value;
+        } else if (!whinerNameInput.value && authWhinerNameInput.value) {
+          whinerNameInput.value = authWhinerNameInput.value;
+        }
+      }
+
+      // Basic client-side validation for required fields.
+      const validateForm = () => {
+        if (!htmlForm) return true;
+
+        if (whinerNameInput) {
+          const whinerValue = whinerNameInput.value.trim();
+          whinerNameInput.setCustomValidity(
+            whinerValue ? "" : "Please enter the whiner's name."
+          );
+        }
+
+        if (authWhinerNameInput && whinerNameInput) {
+          const whinerValue = whinerNameInput.value.trim();
+          const authValue = authWhinerNameInput.value.trim();
+          let authMessage = "";
+
+          if (!authValue) {
+            authMessage = "Please enter the whiner's name.";
+          } else if (whinerValue && authValue !== whinerValue) {
+            authMessage = "Printed name must match whiner's name.";
+          }
+
+          authWhinerNameInput.setCustomValidity(authMessage);
+        }
+
+        if (offenderInput) {
+          const offenderValue = offenderInput.value.trim();
+          offenderInput.setCustomValidity(
+            offenderValue
+              ? ""
+              : "Please enter the name of the person who hurt your feelings."
+          );
+        }
+
+        if (ssnInput) {
+          const ssnValue = ssnInput.value.trim();
+          if (!ssnValue) {
+            ssnInput.setCustomValidity("");
+          } else if (/^[0-9]{3}-[0-9]{2}-[0-9]{4}$/.test(ssnValue)) {
+            ssnInput.setCustomValidity("");
+          } else {
+            ssnInput.setCustomValidity(
+              "Enter Social Security Number in format 555-55-1111."
+            );
+          }
+        }
+
+        return htmlForm.reportValidity();
+      };
+
       const button = document.getElementById("generate-btn");
 
       button?.addEventListener("click", async () => {
-        const originalLabel = button.textContent;
+        if (!validateForm()) {
+          return;
+        }
+
+        const originalLabel = button.textContent ?? "";
         button.disabled = true;
         button.textContent = "Generating...";
         try {
