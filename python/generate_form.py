@@ -272,7 +272,7 @@ def build_form(page: pm.Page) -> None:
         add_text_widget(page, rect, name)
 
     y = draw_section_header(page, left, right, y, "PART II - INCIDENT REPORT")
-    y, _ = draw_field_row(
+    y, incident_row_one = draw_field_row(
         page,
         left,
         y,
@@ -284,7 +284,17 @@ def build_form(page: pm.Page) -> None:
             ("C. LOCATION OF HURTFUL INCIDENT", 0.34),
         ],
     )
-    y, _ = draw_field_row(
+    for (rect, _), name in zip(
+        incident_row_one,
+        [
+            "incident_date",
+            "incident_time",
+            "incident_location",
+        ],
+    ):
+        add_text_widget(page, rect, name)
+
+    y, incident_row_two = draw_field_row(
         page,
         left,
         y,
@@ -295,6 +305,14 @@ def build_form(page: pm.Page) -> None:
             ("E. ORGANIZATION", 0.5),
         ],
     )
+    for (rect, _), name in zip(
+        incident_row_two,
+        [
+            "incident_offender_name",
+            "incident_offender_org",
+        ],
+    ):
+        add_text_widget(page, rect, name)
 
     y = draw_section_header(page, left, right, y, "E. INJURY (Mark all that apply)")
     y = draw_checkbox_line(
