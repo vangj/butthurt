@@ -49,6 +49,14 @@
         text-transform: uppercase;
       }
 
+      .section-title small {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: none;
+      }
+
       .form-section {
         border: 1.5px solid #000;
         margin-bottom: 1.5rem;
@@ -118,7 +126,7 @@
         display: flex;
         gap: 0.5rem;
         margin-bottom: 0;
-        padding: 0.25rem 0;
+        padding: 0.25rem 0 0.25rem 0.75rem;
       }
 
       @media (max-width: 576px) {
@@ -405,7 +413,11 @@
           </section>
 
           <section class="form-section" aria-labelledby="part-narrative">
-            <h2 class="section-title" id="part-narrative">Part V - Narrative (Tell us in your own sissy words how your feelings were hurt.)</h2>
+            <h2 class="section-title" id="part-narrative">
+              <span>Part V - Narrative</span>
+              <br>
+              <small>(Tell us in your own sissy words how your feelings were hurt.)</small>
+            </h2>
             <div>
               <label for="part-v" class="visually-hidden">Narrative Description</label>
               <textarea class="form-control" id="part-v" name="part_v"></textarea>
