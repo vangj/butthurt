@@ -137,6 +137,7 @@ def draw_checkbox_grid(
     items: list[str],
     columns: int,
     row_height: float = 18,
+    field_prefix: str = "checkbox",
 ) -> float:
     content_width = right - left
     column_width = content_width / columns
@@ -151,6 +152,15 @@ def draw_checkbox_grid(
             item = items[idx]
             box_rect = pm.Rect(x + 4, y, x + 4 + box_size, y + box_size)
             page.draw_rect(box_rect, color=BLACK, width=1)
+            widget = pm.Widget()
+            widget.field_name = f"{field_prefix}_{idx + 1}"
+            widget.field_type = pm.PDF_WIDGET_TYPE_CHECKBOX
+            widget.rect = box_rect
+            widget.field_value = False
+            widget.field_label = item
+            widget.border_color = BLACK
+            widget.fill_color = (1, 1, 1)
+            page.add_widget(widget)
             text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height - 4)
             insert_text(page, text_rect, item, size=8)
             x += column_width
@@ -393,6 +403,7 @@ def build_form(page: pm.Page) -> None:
             "All of the above and more",
         ],
         columns=3,
+        field_prefix="part4_reason",
     )
 
     y = draw_section_header(
