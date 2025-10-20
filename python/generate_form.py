@@ -213,15 +213,15 @@ def build_form(page: pm.Page) -> None:
     y += header_height
     page.draw_line((left, y), (right, y))
 
-    info_height = 32
+    info_height = 36
     info_rect = pm.Rect(left, y, right, y + info_height)
     page.draw_rect(info_rect, color=BLACK, width=1)
     insert_text(
         page,
-        inset_rect(info_rect, 6, 4),
+        info_rect,
         "DATA REQUIRED BY THE PRIVACY ACT OF 1974",
         font="Helvetica-Bold",
-        size=11,
+        size=12,
         align=pm.TEXT_ALIGN_CENTER,
     )
     y += info_height
