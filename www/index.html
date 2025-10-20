@@ -449,14 +449,18 @@
               </div>
             </div>
           </section>
-          <div class="d-flex justify-content-end mt-4">
-            <button type="button" id="generate-btn" class="btn btn-dark btn-lg text-uppercase fw-semibold">Generate</button>
+          <div class="d-flex justify-content-end mt-4 gap-3">
+            <button type="button" id="generate-pdf-btn" class="btn btn-dark btn-lg text-uppercase fw-semibold">Generate PDF</button>
+            <button type="button" id="generate-jpg-btn" class="btn btn-outline-dark btn-lg text-uppercase fw-semibold">Generate JPG</button>
           </div>
         </form>
       </article>
     </main>
     <script type="module">
       import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
+
+      const blankPdfUrl = new URL("blank_form.pdf", window.location.href);
+      const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 
       const setTextFields = (form, mappings) => {
         for (const [fieldName, value] of Object.entries(mappings)) {
@@ -472,6 +476,54 @@
             checkBox.check();
           } else {
             checkBox.uncheck();
+          }
+        }
+      };
+
+      const collectRadioSelections = (radioConfig) => {
+        const selections = {};
+        for (const [fieldName, config] of Object.entries(radioConfig)) {
+          const { htmlName, matchers } = config;
+          const checkedInputs = Array.from(
+            document.querySelectorAll(`input[name="${htmlName}"]:checked`)
+          );
+          const selectedValue = checkedInputs.length
+            ? checkedInputs[0].value.toLowerCase()
+            : null;
+          const selectedConfig =
+            selectedValue && matchers[selectedValue] ? matchers[selectedValue] : null;
+          selections[fieldName] = selectedConfig?.onValue ?? null;
+        }
+        return selections;
+      };
+
+      const applyRadioSelections = (form, selections) => {
+        for (const [fieldName, onValue] of Object.entries(selections)) {
+          let radioGroup;
+          try {
+            radioGroup = form.getRadioGroup(fieldName);
+          } catch (error) {
+            console.warn(`Unable to access radio group ${fieldName}:`, error);
+            continue;
+          }
+
+          if (onValue) {
+            try {
+              radioGroup.select(onValue);
+            } catch (error) {
+              console.warn(`Unable to select ${onValue} for ${fieldName}:`, error);
+              try {
+                radioGroup.clear();
+              } catch (clearError) {
+                console.warn(`Unable to clear radio group ${fieldName}:`, clearError);
+              }
+            }
+          } else {
+            try {
+              radioGroup.clear();
+            } catch (error) {
+              console.warn(`Unable to clear radio group ${fieldName}:`, error);
+            }
           }
         }
       };
@@ -520,6 +572,7 @@
 
       const signatureFontUrl = new URL("fonts/GreatVibes-Regular.ttf", window.location.href);
       let signatureFontBytesPromise = null;
+      let fontkitModulePromise = null;
 
       const loadSignatureFontBytes = async () => {
         if (!signatureFontBytesPromise) {
@@ -536,6 +589,18 @@
             });
         }
         return signatureFontBytesPromise;
+      };
+
+      const loadFontkitModule = async () => {
+        if (!fontkitModulePromise) {
+          fontkitModulePromise = import("https://cdn.skypack.dev/@pdf-lib/fontkit@1.1.1")
+            .then((module) => module.default || module)
+            .catch((error) => {
+              fontkitModulePromise = null;
+              throw error;
+            });
+        }
+        return fontkitModulePromise;
       };
 
       const syncFieldValue = (source, target) => {
@@ -569,7 +634,6 @@
       });
 
       if (whinerNameInput && authWhinerNameInput) {
-        // Normalize initial values if one field already has data (e.g. from autofill).
         if (whinerNameInput.value && !authWhinerNameInput.value) {
           authWhinerNameInput.value = whinerNameInput.value;
         } else if (!whinerNameInput.value && authWhinerNameInput.value) {
@@ -579,7 +643,6 @@
       }
       updateSignatureFromName(authWhinerNameInput?.value ?? "");
 
-      // Basic client-side validation for required fields.
       const validateForm = () => {
         if (!htmlForm) return true;
 
@@ -629,214 +692,267 @@
         return htmlForm.reportValidity();
       };
 
-      const button = document.getElementById("generate-btn");
+      const pdfButton = document.getElementById("generate-pdf-btn");
+      const jpgButton = document.getElementById("generate-jpg-btn");
 
-      button?.addEventListener("click", async () => {
-        if (!validateForm()) {
-          return;
+      const setButtonsDisabled = (disabled) => {
+        for (const btn of [pdfButton, jpgButton]) {
+          if (btn) {
+            btn.disabled = disabled;
+          }
+        }
+      };
+
+      const triggerDownload = (blob, filename) => {
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = filename;
+        link.click();
+        setTimeout(() => {
+          URL.revokeObjectURL(downloadUrl);
+        }, 0);
+      };
+
+      const getInputValue = (id) => document.getElementById(id)?.value ?? "";
+      const isChecked = (id) => document.getElementById(id)?.checked ?? false;
+
+      const collectFormValues = () => ({
+        textFields: {
+          admin_whiner_name: getInputValue("part-i-a"),
+          admin_social_security: getInputValue("part-i-b"),
+          admin_report_date: getInputValue("part-i-c"),
+          admin_organization: getInputValue("part-i-d"),
+          admin_preparer_name: getInputValue("part-i-e"),
+          incident_date: getInputValue("part-ii-a"),
+          incident_time: getInputValue("part-ii-b"),
+          incident_location: getInputValue("part-ii-c"),
+          incident_offender_name: getInputValue("part-ii-d"),
+          incident_offender_org: getInputValue("part-ii-e"),
+          narrative_text: getInputValue("part-v"),
+          auth_whiner_name: getInputValue("part-vi-a")
+        },
+        signature: getInputValue("part-vi-b"),
+        checkboxes: {
+          reason_filing_1: isChecked("part-iv-1"),
+          reason_filing_4: isChecked("part-iv-2"),
+          reason_filing_7: isChecked("part-iv-3"),
+          reason_filing_10: isChecked("part-iv-4"),
+          reason_filing_13: isChecked("part-iv-5"),
+          reason_filing_2: isChecked("part-iv-6"),
+          reason_filing_5: isChecked("part-iv-7"),
+          reason_filing_8: isChecked("part-iv-8"),
+          reason_filing_11: isChecked("part-iv-9"),
+          reason_filing_14: isChecked("part-iv-10"),
+          reason_filing_3: isChecked("part-iv-11"),
+          reason_filing_6: isChecked("part-iv-12"),
+          reason_filing_9: isChecked("part-iv-13"),
+          reason_filing_12: isChecked("part-iv-14"),
+          reason_filing_15: isChecked("part-iv-15")
+        },
+        radioSelections: collectRadioSelections(radioGroupsConfig)
+      });
+
+      const embedSignatureFont = async (pdfDoc) => {
+        try {
+          const fontkit = await loadFontkitModule();
+          pdfDoc.registerFontkit(fontkit);
+          const signatureFontBytes = await loadSignatureFontBytes();
+          return await pdfDoc.embedFont(signatureFontBytes);
+        } catch (error) {
+          console.error("Could not load custom signature font:", error);
+          return null;
+        }
+      };
+
+      const createFilledPdfBytes = async () => {
+        const response = await fetch(blankPdfUrl);
+        if (!response.ok) {
+          throw new Error("Unable to load blank PDF form.");
         }
 
-        const originalLabel = button.textContent ?? "";
-        button.disabled = true;
-        button.textContent = "Generating...";
+        const pdfBytes = await response.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+
+        const signatureFont = await embedSignatureFont(pdfDoc);
+        const form = pdfDoc.getForm();
+        const { textFields, signature, checkboxes, radioSelections } = collectFormValues();
+
+        setTextFields(form, textFields);
+
+        let signatureRect = null;
+        let signaturePageIndex = 0;
+
+        let signatureField = null;
         try {
-          const pdfUrl = new URL("blank_form.pdf", window.location.href);
-          const response = await fetch(pdfUrl);
-          if (!response.ok) {
-            throw new Error("Unable to load blank PDF form.");
-          }
-          const pdfBytes = await response.arrayBuffer();
-          const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-          
-          // Load and register fontkit for custom fonts
-          let signatureFont = null;
-          try {
-            // Import fontkit from skypack (which bundles dependencies)
-            const fontkitModule = await import('https://cdn.skypack.dev/@pdf-lib/fontkit@1.1.1');
-            const fontkit = fontkitModule.default || fontkitModule;
-            pdfDoc.registerFontkit(fontkit);
-            
-            // Now we can embed the custom font
-            const signatureFontBytes = await loadSignatureFontBytes();
-            signatureFont = await pdfDoc.embedFont(signatureFontBytes);
-            console.log("Custom signature font loaded successfully");
-          } catch (error) {
-            console.error("Could not load custom signature font:", error);
-            signatureFont = null;
-          }
-          
-          const form = pdfDoc.getForm();
+          signatureField = form.getTextField("auth_whiner_signature");
+        } catch (error) {
+          console.warn("Could not access signature field:", error);
+        }
 
-          // Set all text fields EXCEPT signature
-          setTextFields(form, {
-            admin_whiner_name: document.getElementById("part-i-a").value,
-            admin_social_security: document.getElementById("part-i-b").value,
-            admin_report_date: document.getElementById("part-i-c").value,
-            admin_organization: document.getElementById("part-i-d").value,
-            admin_preparer_name: document.getElementById("part-i-e").value,
-            incident_date: document.getElementById("part-ii-a").value,
-            incident_time: document.getElementById("part-ii-b").value,
-            incident_location: document.getElementById("part-ii-c").value,
-            incident_offender_name: document.getElementById("part-ii-d").value,
-            incident_offender_org: document.getElementById("part-ii-e").value,
-            narrative_text: document.getElementById("part-v").value,
-            auth_whiner_name: document.getElementById("part-vi-a").value
-          });
-
-          // Handle signature field separately - we'll draw it manually with custom font
-          const signatureField = form.getTextField("auth_whiner_signature");
-          const signatureValue = document.getElementById("part-vi-b").value || "";
-          
-          // Get the signature field's position and dimensions BEFORE clearing it
-          let signatureRect = null;
-          let signaturePageIndex = 0;
-          
-          if (signatureField && signatureValue) {
+        if (signatureField) {
+          if (signature) {
             try {
               const widgets = signatureField.acroField.getWidgets();
               if (widgets.length > 0) {
                 const widget = widgets[0];
                 signatureRect = widget.getRectangle();
-                console.log("Signature rect:", signatureRect);
-                
-                // The signature is on page 0 (first page)
                 signaturePageIndex = 0;
               }
             } catch (error) {
               console.warn("Could not get signature field rect:", error);
             }
-            
-            // Clear the signature field text (we'll draw it manually)
-            signatureField.setText("");
-          } else if (signatureField && !signatureValue) {
-            // If no signature value, just clear the field
-            signatureField.setText("");
           }
 
-          setCheckBoxes(form, {
-            reason_filing_1: document.getElementById("part-iv-1").checked,
-            reason_filing_4: document.getElementById("part-iv-2").checked,
-            reason_filing_7: document.getElementById("part-iv-3").checked,
-            reason_filing_10: document.getElementById("part-iv-4").checked,
-            reason_filing_13: document.getElementById("part-iv-5").checked,
-            reason_filing_2: document.getElementById("part-iv-6").checked,
-            reason_filing_5: document.getElementById("part-iv-7").checked,
-            reason_filing_8: document.getElementById("part-iv-8").checked,
-            reason_filing_11: document.getElementById("part-iv-9").checked,
-            reason_filing_14: document.getElementById("part-iv-10").checked,
-            reason_filing_3: document.getElementById("part-iv-11").checked,
-            reason_filing_6: document.getElementById("part-iv-12").checked,
-            reason_filing_9: document.getElementById("part-iv-13").checked,
-            reason_filing_12: document.getElementById("part-iv-14").checked,
-            reason_filing_15: document.getElementById("part-iv-15").checked
-          });
-
-          for (const [fieldName, config] of Object.entries(radioGroupsConfig)) {
-            let radioGroup;
-            try {
-              radioGroup = form.getRadioGroup(fieldName);
-            } catch (error) {
-              console.warn(`Unable to access radio group ${fieldName}:`, error);
-              continue;
-            }
-            const { htmlName, matchers } = config;
-            const checkedInputs = Array.from(
-              document.querySelectorAll(`input[name="${htmlName}"]:checked`)
-            );
-            const selectedValue = checkedInputs.length
-              ? checkedInputs[0].value.toLowerCase()
-              : null;
-            const selectedConfig =
-              selectedValue && matchers[selectedValue] ? matchers[selectedValue] : null;
-            const onValue = selectedConfig?.onValue;
-            if (onValue) {
-              try {
-                radioGroup.select(onValue);
-              } catch (error) {
-                console.warn(`Unable to select ${onValue} for ${fieldName}:`, error);
-                try {
-                  radioGroup.clear();
-                } catch (clearError) {
-                  console.warn(`Unable to clear radio group ${fieldName}:`, clearError);
-                }
-              }
-            } else {
-              try {
-                radioGroup.clear();
-              } catch (error) {
-                console.warn(`Unable to clear radio group ${fieldName}:`, error);
-              }
-            }
+          try {
+            signatureField.setText("");
+          } catch (error) {
+            console.warn("Could not reset signature field:", error);
           }
+        }
 
-          form.flatten();
+        setCheckBoxes(form, checkboxes);
+        applyRadioSelections(form, radioSelections);
 
-          // After flattening, manually draw the signature with custom font
-          if (signatureValue && signatureFont && signatureRect) {
-            try {
-              const page = pdfDoc.getPages()[signaturePageIndex];
-              const fontSize = 16;
-              
-              // Get text dimensions
-              const textWidth = signatureFont.widthOfTextAtSize(signatureValue, fontSize);
-              const textHeight = signatureFont.heightAtSize(fontSize);
-              
-              // PDF coordinates: origin is bottom-left
-              // PyMuPDF rect: x0=305.5, y0=794, x1=561, y1=808 (height=14)
-              // We need to draw the text baseline at approximately y0 + (height/2)
-              
-              const xPosition = signatureRect.x + 8;
-              const yPosition = signatureRect.y + (signatureRect.height / 2) - (fontSize * 0.35);
-              
-              console.log("Drawing signature:", {
-                text: signatureValue,
-                fontSize,
-                rect: {
-                  x: signatureRect.x,
-                  y: signatureRect.y,
-                  width: signatureRect.width,
-                  height: signatureRect.height
-                },
-                drawPosition: { x: xPosition, y: yPosition }
-              });
-              
-              // Draw the signature text
-              page.drawText(signatureValue, {
-                x: xPosition,
-                y: yPosition,
-                size: fontSize,
-                font: signatureFont,
-                color: { type: 'RGB', red: 0, green: 0, blue: 0 }
-              });
-              
-              console.log("Signature drawn successfully");
-            } catch (error) {
-              console.error("Could not draw signature with custom font:", error);
+        form.flatten();
+
+        if (signature && signatureFont && signatureRect) {
+          try {
+            const pages = pdfDoc.getPages();
+            const page = pages[signaturePageIndex] ?? pages[0];
+            if (!page) {
+              throw new Error("Unable to access the signature page.");
             }
-          } else {
-            console.log("Skipping signature draw:", {
-              hasValue: !!signatureValue,
-              hasFont: !!signatureFont,
-              hasRect: !!signatureRect
+            const fontSize = 16;
+            const xPosition = signatureRect.x + 8;
+            const yPosition = signatureRect.y + signatureRect.height / 2 - fontSize * 0.35;
+
+            page.drawText(signature, {
+              x: xPosition,
+              y: yPosition,
+              size: fontSize,
+              font: signatureFont,
+              color: { type: "RGB", red: 0, green: 0, blue: 0 }
             });
+          } catch (error) {
+            console.error("Could not draw signature with custom font:", error);
           }
+        } else {
+          console.log("Skipping signature draw:", {
+            hasValue: !!signature,
+            hasFont: !!signatureFont,
+            hasRect: !!signatureRect
+          });
+        }
 
-          const filledBytes = await pdfDoc.save();
-          const blob = new Blob([filledBytes], { type: "application/pdf" });
-          const downloadUrl = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = downloadUrl;
-          link.download = "butthurt.pdf";
-          link.click();
-          URL.revokeObjectURL(downloadUrl);
+        const filledBytes = await pdfDoc.save();
+        return filledBytes instanceof Uint8Array ? filledBytes : new Uint8Array(filledBytes);
+      };
+
+      const renderPdfToJpegs = (pdfBytes, { scale = 2, quality = 0.92 } = {}) => {
+        const worker = new Worker(rendererWorkerUrl, { type: "module" });
+        const pdfBytesCopy = pdfBytes.slice();
+        return new Promise((resolve, reject) => {
+          const pages = [];
+
+          const cleanup = () => {
+            worker.removeEventListener("message", handleMessage);
+            worker.removeEventListener("error", handleError);
+            worker.terminate();
+          };
+
+          const handleMessage = (event) => {
+            const data = event.data;
+            if (!data) {
+              return;
+            }
+
+            if (data.type === "page") {
+              const blob = new Blob([data.buffer], { type: "image/jpeg" });
+              pages.push({ pageNum: data.pageNum, blob });
+            } else if (data.type === "complete") {
+              cleanup();
+              pages.sort((a, b) => a.pageNum - b.pageNum);
+              resolve(pages);
+            } else if (data.type === "error") {
+              cleanup();
+              reject(new Error(data.message || "Unable to render PDF as JPG."));
+            }
+          };
+
+          const handleError = (event) => {
+            cleanup();
+            reject(event.error || new Error("Unable to render PDF as JPG."));
+          };
+
+          worker.addEventListener("message", handleMessage);
+          worker.addEventListener("error", handleError);
+
+          worker.postMessage(
+            {
+              type: "render",
+              pdfBytes: pdfBytesCopy.buffer,
+              scale,
+              quality
+            },
+            [pdfBytesCopy.buffer]
+          );
+        });
+      };
+
+      const runWithLoadingState = async (button, task, errorMessage) => {
+        if (!validateForm()) {
+          return;
+        }
+
+        const originalLabel = button?.textContent ?? "";
+
+        if (button) {
+          button.textContent = "Generating...";
+        }
+        setButtonsDisabled(true);
+
+        try {
+          await task();
         } catch (error) {
           console.error(error);
-          alert("We couldn't generate the PDF. Please try again.");
+          alert(errorMessage);
         } finally {
-          button.disabled = false;
-          button.textContent = originalLabel;
+          setButtonsDisabled(false);
+          if (button) {
+            button.textContent = originalLabel;
+          }
         }
-      });
+      };
+
+      const handlePdfGeneration = async () => {
+        const filledBytes = await createFilledPdfBytes();
+        const blob = new Blob([filledBytes], { type: "application/pdf" });
+        triggerDownload(blob, "butthurt.pdf");
+      };
+
+      const handleJpgGeneration = async () => {
+        const filledBytes = await createFilledPdfBytes();
+        const pages = await renderPdfToJpegs(filledBytes, { scale: 2, quality: 0.9 });
+        if (!pages.length) {
+          throw new Error("No pages were rendered from the PDF.");
+        }
+
+        const multiPage = pages.length > 1;
+        for (const { pageNum, blob } of pages) {
+          const paddedPage = String(pageNum).padStart(2, "0");
+          const filename = multiPage ? `butthurt-page-${paddedPage}.jpg` : "butthurt.jpg";
+          triggerDownload(blob, filename);
+        }
+      };
+
+      pdfButton?.addEventListener("click", () =>
+        runWithLoadingState(pdfButton, handlePdfGeneration, "We couldn't generate the PDF. Please try again.")
+      );
+
+      jpgButton?.addEventListener("click", () =>
+        runWithLoadingState(jpgButton, handleJpgGeneration, "We couldn't generate the JPG. Please try again.")
+      );
     </script>
   </body>
 </html>
