@@ -42,8 +42,10 @@ def draw_labeled_box(
     rows: list[tuple[str, str]],
     label_width: float = 160,
     line_height: float = 22,
+    row_gap: float | None = None,
 ) -> float:
-    height = line_height * len(rows)
+    gap = row_gap if row_gap is not None else line_height
+    height = line_height + max(0, (len(rows) - 1) * gap)
     rect = pm.Rect(left, y, right, y + height)
     page.draw_rect(rect, color=BLACK, width=1)
 
@@ -53,7 +55,7 @@ def draw_labeled_box(
         insert_text(page, label_rect, label, font="Helvetica-Bold", size=8)
         body_rect = pm.Rect(label_rect.x1 + 6, line_top + 4, rect.x1 - 6, line_top + line_height - 4)
         insert_text(page, body_rect, body, size=8)
-        line_top += line_height
+        line_top += gap
 
     return rect.y1
 
@@ -233,6 +235,7 @@ def build_form(page: pm.Page) -> None:
             ("PRINCIPAL PURPOSE:", "To assist whiners in documenting hurt feelings."),
             ("ROUTINE USES:", "Leaders & whiners should use this form as necessary."),
         ],
+        row_gap=10,
     )
 
     y = draw_section_header(page, left, right, y, "PART I - ADMINISTRATIVE DATA")
