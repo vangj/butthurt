@@ -737,6 +737,85 @@ def remove_text_widget_borders(doc: pm.Document) -> None:
                 except Exception:
                     continue
 
+
+def configure_signature_font(
+    doc: pm.Document,
+    signature_font_xref: int,
+    signature_font_name: str,
+    signature_font_size: float,
+) -> None:
+    """Configure the signature field to use a custom font.
+    
+    This function:
+    1. Adds the custom font to the AcroForm's default resources (DR)
+    2. Sets the signature field's default appearance (DA) to use the custom font
+    3. Removes the appearance stream (AP) so PDF readers regenerate it with the new font
+    
+    Args:
+        doc: The PDF document
+        signature_font_xref: The xref number of the embedded font
+        signature_font_name: The name of the font (e.g., "GreatVibes")
+        signature_font_size: The font size to use
+    """
+    # Find the signature widget
+    page = doc[0]
+    signature_widget = None
+    for widget in page.widgets():
+        if widget.field_name == "auth_whiner_signature":
+            signature_widget = widget
+            break
+    
+    if not signature_widget:
+        return
+    
+    try:
+        # Step 1: Add the font to the AcroForm's DR (Default Resources)
+        # This is critical - PDF readers look here for available fonts
+        catalog_xref = doc.pdf_catalog()
+        acroform_ref = doc.xref_get_key(catalog_xref, "AcroForm")
+        
+        if acroform_ref[0] == "dict":
+            # AcroForm is inline - we need to make it an indirect object
+            fields_str = acroform_ref[1]
+            
+            # Find the /Fields array in the inline dict
+            import re
+            fields_match = re.search(r'/Fields\[(.*?)\]', fields_str)
+            if fields_match:
+                fields_content = fields_match.group(1)
+                
+                # Create new AcroForm object with DR including our custom font
+                new_acroform_xref = doc.get_new_xref()
+                acroform_dict = (
+                    f"<< /Fields [{fields_content}] "
+                    f"/DR << /Font << /Helv /Helvetica /{signature_font_name} {signature_font_xref} 0 R >> >> >>"
+                )
+                
+                doc.update_object(new_acroform_xref, acroform_dict)
+                
+                # Update catalog to point to new AcroForm
+                doc.xref_set_key(catalog_xref, "AcroForm", f"{new_acroform_xref} 0 R")
+        
+        # Step 2: Set the DA (default appearance) string on the widget
+        # This tells the PDF reader which font to use for THIS field
+        doc.xref_set_key(
+            signature_widget.xref,
+            "DA",
+            f"(0 0 0 rg /{signature_font_name} {signature_font_size} Tf)",
+        )
+        
+        # Step 3: Remove the /AP (appearance stream) - it caches the old font
+        # The PDF reader will regenerate it from the DA string
+        doc.xref_set_key(signature_widget.xref, "AP", "null")
+        
+        # DO NOT call widget.update() here - it will reset everything!
+        
+    except Exception as e:
+        print(f"Error configuring signature font: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main(output_path: str = "blank_form.pdf") -> None:
     from pathlib import Path
     import os
@@ -755,58 +834,12 @@ def main(output_path: str = "blank_form.pdf") -> None:
     if signature_info:
         signature_font_xref, signature_font_name, signature_font_size = signature_info
         if signature_font_xref and signature_font_name == SIGNATURE_FONT_NAME:
-            # Find the signature widget by field name
-            page = post_doc[0]
-            signature_widget = None
-            for widget in page.widgets():
-                if widget.field_name == "auth_whiner_signature":
-                    signature_widget = widget
-                    break
-            
-            if signature_widget:
-                try:
-                    # CRITICAL: Add the font to the AcroForm's DR FIRST
-                    # This is what PDF readers look at!
-                    catalog_xref = post_doc.pdf_catalog()
-                    acroform_ref = post_doc.xref_get_key(catalog_xref, "AcroForm")
-                    
-                    if acroform_ref[0] == "dict":
-                        # AcroForm is inline - we need to make it an indirect object
-                        fields_str = acroform_ref[1]
-                        
-                        # Find the /Fields array in the inline dict
-                        import re
-                        fields_match = re.search(r'/Fields\[(.*?)\]', fields_str)
-                        if fields_match:
-                            fields_content = fields_match.group(1)
-                            
-                            # Create new AcroForm object with DR
-                            new_acroform_xref = post_doc.get_new_xref()
-                            acroform_dict = f"<< /Fields [{fields_content}] /DR << /Font << /Helv /Helvetica /{SIGNATURE_FONT_NAME} {signature_font_xref} 0 R >> >> >>"
-                            
-                            post_doc.update_object(new_acroform_xref, acroform_dict)
-                            
-                            # Update catalog to point to new AcroForm
-                            post_doc.xref_set_key(catalog_xref, "AcroForm", f"{new_acroform_xref} 0 R")
-                    
-                    # Now set the DA (default appearance) string on the widget
-                    # This tells the PDF reader which font to use for THIS field
-                    post_doc.xref_set_key(
-                        signature_widget.xref,
-                        "DA",
-                        f"(0 0 0 rg /{SIGNATURE_FONT_NAME} {signature_font_size} Tf)",
-                    )
-                    
-                    # Remove the /AP (appearance stream) - it caches the old font
-                    # The PDF reader will regenerate it from the DA string
-                    post_doc.xref_set_key(signature_widget.xref, "AP", "null")
-                    
-                    # DO NOT call widget.update() here - it will reset everything!
-                    
-                except Exception as e:
-                    print(f"Error: {e}")
-                    import traceback
-                    traceback.print_exc()
+            configure_signature_font(
+                post_doc,
+                signature_font_xref,
+                signature_font_name,
+                signature_font_size,
+            )
     
     # Save to temporary file then replace the original
     temp_path = f"{output_path}.tmp"
