@@ -1,6 +1,76 @@
+import re
+from collections import defaultdict, deque
+
 import pymupdf as pm
 
 BLACK = (0, 0, 0)
+
+PART_ROMANS = {
+    1: "I",
+    2: "II",
+    3: "III",
+    4: "IV",
+    5: "V",
+    6: "VI",
+}
+
+TEXT_TOOLTIPS: dict[str, str] = {
+    "admin_whiner_name": "Part I, Administrative Data, Question A, Whiner's Name (Last, First, MI)",
+    "admin_social_security": "Part I, Administrative Data, Question B, Social Security Number",
+    "admin_report_date": "Part I, Administrative Data, Question C, Date of Report",
+    "admin_organization": "Part I, Administrative Data, Question D, Organization",
+    "admin_preparer_name": "Part I, Administrative Data, Question E, Name & Title of Person Filling Out This Form",
+    "incident_date": "Part II, Incident Report, Question A, Date Feelings Were Hurt",
+    "incident_time": "Part II, Incident Report, Question B, Time of Hurtfulness",
+    "incident_location": "Part II, Incident Report, Question C, Location of Hurtful Incident",
+    "incident_offender_name": "Part II, Incident Report, Question D, Name of Real Man/Woman Who Hurt Your Sensitive Feelings",
+    "incident_offender_org": "Part II, Incident Report, Question E, Organization",
+    "part5_narrative": "Part V, Narrative",
+    "auth_whiner_name": "Part VI, Authentication, Question A, Printed Name of Whiner",
+    "auth_whiner_signature": "Part VI, Authentication, Question B, Signature",
+}
+
+_TOOLTIP_QUEUE: defaultdict[str, list[str]] = defaultdict(list)
+
+
+def part_label_from_field(field_name: str) -> str:
+    match = re.match(r"part(\d+)", field_name)
+    if match:
+        number = int(match.group(1))
+        return f"Part {PART_ROMANS.get(number, str(number))}"
+    return "Part"
+
+
+def question_number_from_field(field_name: str) -> str:
+    match = re.search(r"question(\d+)", field_name)
+    return match.group(1) if match else ""
+
+
+def apply_tooltips(page: pm.Page) -> None:
+    queues = {name: deque(values) for name, values in _TOOLTIP_QUEUE.items()}
+    for widget in page.widgets():
+        name = widget.field_name or ""
+        tooltip: str | None = None
+        queue = queues.get(name)
+        if queue:
+            tooltip = queue.popleft()
+        else:
+            if widget.field_type == pm.PDF_WIDGET_TYPE_TEXT:
+                tooltip = TEXT_TOOLTIPS.get(name)
+            elif widget.field_type == pm.PDF_WIDGET_TYPE_RADIOBUTTON:
+                option_label = widget.field_label or ""
+                question = question_number_from_field(name)
+                part_label = part_label_from_field(name)
+                tooltip = f"{part_label}, Question {question}, Option is {option_label}" if question else f"{part_label}, Option is {option_label}"
+            elif widget.field_type == pm.PDF_WIDGET_TYPE_CHECKBOX:
+                option_label = widget.field_label or ""
+                part_label = part_label_from_field(name)
+                tooltip = f"{part_label}, Option is {option_label}"
+
+        if tooltip:
+            widget.field_label = tooltip
+            widget.update()
+    _TOOLTIP_QUEUE.clear()
 
 
 def inset_rect(rect: pm.Rect, dx: float = 4, dy: float = 4) -> pm.Rect:
@@ -106,6 +176,11 @@ def draw_checkbox_line(
     x = left + 8
     box_size = 10
     radius = box_size / 2
+    part_match = re.match(r"part(\d+)", field_name)
+    part_number = int(part_match.group(1)) if part_match else None
+    part_label = f"Part {PART_ROMANS.get(part_number, str(part_number))}" if part_number else "Part"
+    question_match = re.search(r"question(\d+)", field_name)
+    question_number = question_match.group(1) if question_match else ""
     for option in options:
         box_rect = pm.Rect(x, box_y, x + box_size, box_y + box_size)
         center = (box_rect.x0 + radius, box_rect.y0 + radius)
@@ -115,10 +190,11 @@ def draw_checkbox_line(
         widget.field_type = pm.PDF_WIDGET_TYPE_RADIOBUTTON
         widget.rect = box_rect
         widget.field_value = False
-        widget.field_label = option
         widget.border_color = BLACK
         widget.fill_color = (1, 1, 1)
         page.add_widget(widget)
+        tooltip = f"{part_label}, Question {question_number}, Option is {option}"
+        _TOOLTIP_QUEUE[field_name].append(tooltip)
         insert_text(
             page,
             pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 150, box_rect.y1 + 10),
@@ -157,10 +233,14 @@ def draw_checkbox_grid(
             widget.field_type = pm.PDF_WIDGET_TYPE_CHECKBOX
             widget.rect = box_rect
             widget.field_value = False
-            widget.field_label = item
+            part_match = re.match(r"part(\d+)", field_prefix)
+            part_number = int(part_match.group(1)) if part_match else None
+            part_label = f"Part {PART_ROMANS.get(part_number, str(part_number))}" if part_number else "Part"
             widget.border_color = BLACK
             widget.fill_color = (1, 1, 1)
             page.add_widget(widget)
+            tooltip = f"{part_label}, Option is {item}"
+            _TOOLTIP_QUEUE[widget.field_name].append(tooltip)
             text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height - 4)
             insert_text(page, text_rect, item, size=8)
             x += column_width
@@ -195,7 +275,14 @@ def draw_signature_row(
     return y + height, rects
 
 
-def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, top_offset: float | None = None) -> None:
+def add_text_widget(
+    page: pm.Page,
+    rect: pm.Rect,
+    field_name: str,
+    *,
+    top_offset: float | None = None,
+    tooltip: str | None = None,
+) -> None:
     if top_offset is None:
         top_offset = min(rect.height * 0.45, 20)
     field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y1 - 8)
@@ -211,9 +298,11 @@ def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, top_offset
     widget.border_color = BLACK
     widget.border_width = 0
     page.add_widget(widget)
+    if tooltip:
+        _TOOLTIP_QUEUE[field_name].append(tooltip)
 
 
-def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
+def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, tooltip: str | None = None) -> None:
     field_rect = pm.Rect(rect.x0 + 6, rect.y0 + 6, rect.x1 - 6, rect.y1 - 6)
     widget = pm.Widget()
     widget.field_name = field_name
@@ -226,6 +315,8 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
     widget.border_width = 0
     widget.field_flags = pm.PDF_TX_FIELD_IS_MULTILINE
     page.add_widget(widget)
+    if tooltip:
+        _TOOLTIP_QUEUE[field_name].append(tooltip)
 
 
 def build_form(page: pm.Page) -> None:
@@ -298,7 +389,7 @@ def build_form(page: pm.Page) -> None:
         admin_row_one,
         ["admin_whiner_name", "admin_social_security", "admin_report_date"],
     ):
-        add_text_widget(page, rect, name)
+        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
     y, admin_row_two = draw_field_row(
         page,
@@ -315,7 +406,7 @@ def build_form(page: pm.Page) -> None:
         admin_row_two,
         ["admin_organization", "admin_preparer_name"],
     ):
-        add_text_widget(page, rect, name)
+        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
     y = draw_section_header(page, left, right, y, "PART II - INCIDENT REPORT")
     y, incident_row_one = draw_field_row(
@@ -338,7 +429,7 @@ def build_form(page: pm.Page) -> None:
             "incident_location",
         ],
     ):
-        add_text_widget(page, rect, name)
+        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
     y, incident_row_two = draw_field_row(
         page,
@@ -358,7 +449,7 @@ def build_form(page: pm.Page) -> None:
             "incident_offender_org",
         ],
     ):
-        add_text_widget(page, rect, name)
+        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
     y = draw_section_header(page, left, right, y, "PART III - INJURY (Mark all that apply)")
     y = draw_checkbox_line(
@@ -437,7 +528,7 @@ def build_form(page: pm.Page) -> None:
     narrative_height = 64
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
     page.draw_rect(narrative_rect, color=BLACK, width=1)
-    add_textarea_widget(page, narrative_rect, "part5_narrative")
+    add_textarea_widget(page, narrative_rect, "part5_narrative", tooltip=TEXT_TOOLTIPS.get("part5_narrative"))
     y = narrative_rect.y1
 
     y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
@@ -460,7 +551,9 @@ def build_form(page: pm.Page) -> None:
             "auth_whiner_signature",
         ],
     ):
-        add_text_widget(page, rect, name)
+        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
+
+    apply_tooltips(page)
 
 def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
