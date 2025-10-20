@@ -438,10 +438,166 @@
             </div>
           </section>
           <div class="d-flex justify-content-end mt-4">
-            <button type="button" class="btn btn-dark btn-lg text-uppercase fw-semibold">Generate</button>
+            <button type="button" id="generate-btn" class="btn btn-dark btn-lg text-uppercase fw-semibold">Generate</button>
           </div>
         </form>
       </article>
     </main>
+    <script type="module">
+      import {
+        PDFDocument,
+        PDFName
+      } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
+
+      const tooltipToken = "Option is ";
+      const getTooltip = (field) => {
+        const raw = field.acroField.get(PDFName.of("TU"));
+        if (!raw) return "";
+        if (typeof raw.decodeText === "function") {
+          return raw.decodeText();
+        }
+        if (typeof raw.value === "string") {
+          return raw.value;
+        }
+        return String(raw);
+      };
+
+      const parseOption = (tooltip) => {
+        if (!tooltip) return "";
+        const idx = tooltip.lastIndexOf(tooltipToken);
+        if (idx === -1) {
+          return tooltip.trim().toLowerCase();
+        }
+        return tooltip.slice(idx + tooltipToken.length).trim().toLowerCase();
+      };
+
+      const groupFieldsByName = (form) => {
+        const grouped = new Map();
+        for (const field of form.getFields()) {
+          const name = field.getName();
+          if (!grouped.has(name)) {
+            grouped.set(name, []);
+          }
+          grouped.get(name).push(field);
+        }
+        return grouped;
+      };
+
+      const setWidgetState = (field, isSelected) => {
+        const acroField = field.acroField;
+        const stateName = PDFName.of(isSelected ? "Yes" : "Off");
+        acroField.set(PDFName.of("V"), stateName);
+        acroField.set(PDFName.of("AS"), stateName);
+      };
+
+      const setTextFields = (form, mappings) => {
+        for (const [fieldName, value] of Object.entries(mappings)) {
+          const textField = form.getTextField(fieldName);
+          textField.setText(value ?? "");
+        }
+      };
+
+      const setCheckBoxes = (form, mappings) => {
+        for (const [fieldName, checked] of Object.entries(mappings)) {
+          const checkBox = form.getCheckBox(fieldName);
+          if (checked) {
+            checkBox.check();
+          } else {
+            checkBox.uncheck();
+          }
+        }
+      };
+
+      const button = document.getElementById("generate-btn");
+
+      const getRadioValue = (name) => {
+        const input = document.querySelector(`input[name="${name}"]:checked`);
+        return input ? input.value : null;
+      };
+
+      button?.addEventListener("click", async () => {
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = "Generating...";
+        try {
+          const pdfUrl = new URL("blank_form.pdf", window.location.href);
+          const response = await fetch(pdfUrl);
+          if (!response.ok) {
+            throw new Error("Unable to load blank PDF form.");
+          }
+          const pdfBytes = await response.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+          const form = pdfDoc.getForm();
+          const groupedFields = groupFieldsByName(form);
+
+          setTextFields(form, {
+            admin_whiner_name: document.getElementById("part-i-a").value,
+            admin_social_security: document.getElementById("part-i-b").value,
+            admin_report_date: document.getElementById("part-i-c").value,
+            admin_organization: document.getElementById("part-i-d").value,
+            admin_preparer_name: document.getElementById("part-i-e").value,
+            incident_date: document.getElementById("part-ii-a").value,
+            incident_time: document.getElementById("part-ii-b").value,
+            incident_location: document.getElementById("part-ii-c").value,
+            incident_offender_name: document.getElementById("part-ii-d").value,
+            incident_offender_org: document.getElementById("part-ii-e").value,
+            narrative_text: document.getElementById("part-v").value,
+            auth_whiner_name: document.getElementById("part-vi-a").value,
+            auth_whiner_signature: document.getElementById("part-vi-b").value
+          });
+
+          setCheckBoxes(form, {
+            reason_filing_1: document.getElementById("part-iv-1").checked,
+            reason_filing_4: document.getElementById("part-iv-2").checked,
+            reason_filing_7: document.getElementById("part-iv-3").checked,
+            reason_filing_10: document.getElementById("part-iv-4").checked,
+            reason_filing_13: document.getElementById("part-iv-5").checked,
+            reason_filing_2: document.getElementById("part-iv-6").checked,
+            reason_filing_5: document.getElementById("part-iv-7").checked,
+            reason_filing_8: document.getElementById("part-iv-8").checked,
+            reason_filing_11: document.getElementById("part-iv-9").checked,
+            reason_filing_14: document.getElementById("part-iv-10").checked,
+            reason_filing_3: document.getElementById("part-iv-11").checked,
+            reason_filing_6: document.getElementById("part-iv-12").checked,
+            reason_filing_9: document.getElementById("part-iv-13").checked,
+            reason_filing_12: document.getElementById("part-iv-14").checked,
+            reason_filing_15: document.getElementById("part-iv-15").checked
+          });
+
+          const radioMappings = {
+            injury_question1: getRadioValue("part_iii_1"),
+            injury_question2: getRadioValue("part_iii_2"),
+            injury_question3: getRadioValue("part_iii_3"),
+            injury_question4: getRadioValue("part_iii_4")
+          };
+
+          for (const [fieldName, selectedValue] of Object.entries(radioMappings)) {
+            const options = groupedFields.get(fieldName) ?? [];
+            for (const optionField of options) {
+              const optionLabel = parseOption(getTooltip(optionField));
+              const matches = Boolean(selectedValue) && optionLabel === selectedValue.toLowerCase();
+              setWidgetState(optionField, matches);
+            }
+          }
+
+          form.flatten();
+
+          const filledBytes = await pdfDoc.save();
+          const blob = new Blob([filledBytes], { type: "application/pdf" });
+          const downloadUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = downloadUrl;
+          link.download = "butthurt.pdf";
+          link.click();
+          URL.revokeObjectURL(downloadUrl);
+        } catch (error) {
+          console.error(error);
+          alert("We couldn't generate the PDF. Please try again.");
+        } finally {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
+      });
+    </script>
   </body>
 </html>
