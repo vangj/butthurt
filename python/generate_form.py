@@ -41,7 +41,7 @@ def draw_labeled_box(
     y: float,
     rows: list[tuple[str, str]],
     label_width: float = 160,
-    line_height: float = 26,
+    line_height: float = 22,
 ) -> float:
     height = line_height * len(rows)
     rect = pm.Rect(left, y, right, y + height)
