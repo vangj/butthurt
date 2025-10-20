@@ -321,7 +321,10 @@ def draw_checkbox_line(
     part_label = part_label_from_field(field_name)
     question_match = re.search(r"question(\d+)", field_name)
     question_number = question_match.group(1) if question_match else ""
-    for option in options:
+    # Store widget info to update after all are added
+    widgets_to_update = []
+    
+    for idx, option in enumerate(options):
         box_rect = pm.Rect(x, box_y, x + box_size, box_y + box_size)
         center = (box_rect.x0 + radius, box_rect.y0 + radius)
         page.draw_circle(center, radius, color=BLACK, width=1)
@@ -329,10 +332,14 @@ def draw_checkbox_line(
         widget.field_name = field_name
         widget.field_type = pm.PDF_WIDGET_TYPE_RADIOBUTTON
         widget.rect = box_rect
-        widget.field_value = False
+        widget.field_value = False  # Not selected by default
         widget.border_color = BLACK
         widget.fill_color = (1, 1, 1)
         page.add_widget(widget)
+        
+        # Store the widget and its desired on-state value for later update
+        widgets_to_update.append((widget, option))
+        
         tooltip = f"{part_label}, Question {question_number}, Option is {option}"
         _TOOLTIP_QUEUE[field_name].append(tooltip)
         insert_text(
@@ -342,6 +349,15 @@ def draw_checkbox_line(
             size=8,
         )
         x = box_rect.x1 + 150
+    
+    # Store the radio button info for post-processing (we'll fix the on-states after saving)
+    doc = page.parent
+    if not hasattr(doc, '_radio_button_updates'):
+        doc._radio_button_updates = []
+    
+    for widget, on_state_value in widgets_to_update:
+        doc._radio_button_updates.append((widget.xref, on_state_value))
+    
     return box_y + box_size + 4
 
 
@@ -719,12 +735,16 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
 
     apply_tooltips(page)
     
-    # Always return signature info for post-processing
-    # We need to set the font AFTER saving because widget.update() resets it
-    if signature_font_name == SIGNATURE_FONT_NAME and isinstance(signature_font_xref, int):
-        return (signature_font_xref, signature_font_name, signature_font_size)
+    # Collect radio button updates that need to be applied after saving
+    radio_button_updates = getattr(doc, '_radio_button_updates', [])
     
-    return None
+    # Always return signature info and radio button info for post-processing
+    # We need to set these AFTER saving because widget.update() resets them
+    signature_info = None
+    if signature_font_name == SIGNATURE_FONT_NAME and isinstance(signature_font_xref, int):
+        signature_info = (signature_font_xref, signature_font_name, signature_font_size)
+    
+    return signature_info, radio_button_updates
 
 
 def remove_text_widget_borders(doc: pm.Document) -> None:
@@ -822,8 +842,7 @@ def main(output_path: str = "blank_form.pdf") -> None:
     
     doc = pm.open()
     page = doc.new_page()
-    signature_info = build_form(page)
-    metadata = collect_metadata(doc)
+    signature_info, radio_button_updates = build_form(page)
     doc.save(output_path)
     doc.close()
 
@@ -841,9 +860,32 @@ def main(output_path: str = "blank_form.pdf") -> None:
                 signature_font_size,
             )
     
+    # Fix radio button on-states after document is saved and reopened
+    # We need to match widgets by their position/index since xrefs change
+    page = post_doc[0]
+    radio_widgets = [w for w in page.widgets() if w.field_type == pm.PDF_WIDGET_TYPE_RADIOBUTTON]
+    
+    if len(radio_widgets) == len(radio_button_updates):
+        for widget, (_, on_state_value) in zip(radio_widgets, radio_button_updates):
+            try:
+                # Get the current AP (appearance) dictionary
+                ap_ref = post_doc.xref_get_key(widget.xref, "AP")
+                if ap_ref[0] == "dict":
+                    # Parse the appearance dict and replace "Yes" with the custom on-state
+                    ap_dict_str = ap_ref[1]
+                    # Replace /Yes with /{on_state_value}
+                    updated_ap = ap_dict_str.replace("/Yes", f"/{on_state_value}")
+                    post_doc.xref_set_key(widget.xref, "AP", updated_ap)
+            except Exception as e:
+                print(f"Failed to update radio button on-state: {e}")
+    
     # Save to temporary file then replace the original
     temp_path = f"{output_path}.tmp"
     post_doc.save(temp_path)
+    
+    # Collect metadata AFTER all post-processing
+    metadata = collect_metadata(post_doc)
+    
     post_doc.close()
     
     # Replace the original with the temp file
