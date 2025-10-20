@@ -186,7 +186,7 @@ def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
 def build_form(page: pm.Page) -> None:
     width = page.rect.width
     height = page.rect.height
-    margin = 36
+    margin = 48
     left = margin
     right = width - margin
     top = margin
@@ -384,15 +384,6 @@ def build_form(page: pm.Page) -> None:
             ("D. SIGNATURE", 0.25),
         ],
     )
-
-    insert_text(
-        page,
-        pm.Rect(left, bottom + 2, right, bottom + 14),
-        "©2012 ITS Tactical",
-        size=7,
-        align=pm.TEXT_ALIGN_LEFT,
-    )
-
 
 def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
