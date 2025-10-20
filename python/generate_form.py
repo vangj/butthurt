@@ -198,7 +198,7 @@ def build_form(page: pm.Page) -> None:
 
     y = top
 
-    header_height = 50
+    header_height = 56
     header_rect = pm.Rect(left, y, right, y + header_height)
     page.insert_textbox(
         header_rect,
