@@ -186,7 +186,7 @@ def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
 def build_form(page: pm.Page) -> None:
     width = page.rect.width
     height = page.rect.height
-    margin = 48
+    margin = 26
     left = margin
     right = width - margin
     top = margin
