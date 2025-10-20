@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Butt Hurt Report</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    >
+    <style>
+      body {
+        background-color: #f3f4f6;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .sheet {
+        background-color: #ffffff;
+        border: 2px solid #000;
+        margin: 0 auto;
+        max-width: 960px;
+        padding: 2.5rem 2rem;
+      }
+
+      .form-title {
+        letter-spacing: 0.08em;
+      }
+
+      .info-box {
+        border: 1.5px solid #000;
+        padding: 1rem 1.25rem;
+      }
+
+      .info-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        margin-bottom: 1.25rem;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .form-section {
+        border: 1.5px solid #000;
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+      }
+
+      .form-label,
+      legend {
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .form-label {
+        margin-bottom: 0.25rem;
+      }
+
+      legend {
+        float: none;
+        margin-bottom: 0.75rem;
+        width: auto;
+      }
+
+      .question-legend {
+        font-size: 0.94rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: none;
+      }
+
+      .form-control,
+      textarea {
+        border: 1.5px solid #000;
+        border-radius: 0;
+        min-height: 3rem;
+      }
+
+      textarea {
+        min-height: 10rem;
+      }
+
+      .form-check-input {
+        border: 1.5px solid #000;
+        border-radius: 0;
+        height: 1.25rem;
+        margin-top: 0;
+        width: 1.25rem;
+      }
+
+      .form-check-input:checked {
+        background-color: #000;
+        border-color: #000;
+      }
+
+      .form-check-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .reason-grid .col {
+        display: flex;
+      }
+
+      .reason-grid .form-check {
+        align-items: center;
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0;
+        padding: 0.25rem 0;
+      }
+
+      @media (max-width: 576px) {
+        .sheet {
+          padding: 1.75rem 1.25rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container-fluid py-4">
+      <article class="sheet" role="document">
+        <header class="text-center mb-4">
+          <h1 class="form-title text-uppercase display-6 fw-bold mb-3">Butt Hurt Report</h1>
+          <p class="text-uppercase fw-semibold mb-3">Data Required By The Privacy Act Of 1974</p>
+          <div class="info-box">
+            <div class="row g-4">
+              <div class="col-md-6">
+                <p class="info-label mb-1">Principal Purpose:</p>
+                <p class="mb-0">To assist whiners in documenting hurt feelings.</p>
+              </div>
+              <div class="col-md-6">
+                <p class="info-label mb-1">Routine Uses:</p>
+                <p class="mb-0">Leaders &amp; whiners should use this form as necessary.</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <form novalidate>
+          <section class="form-section" aria-labelledby="part-administrative">
+            <h2 class="section-title" id="part-administrative">Part I - Administrative Data</h2>
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label for="whiner-name" class="form-label">A. Whiner's Name (Last, First, MI)</label>
+                <input type="text" class="form-control" id="whiner-name" name="whiner_name" autocomplete="name">
+              </div>
+              <div class="col-md-4">
+                <label for="social-security" class="form-label">B. Social Security Number</label>
+                <input type="text" class="form-control" id="social-security" name="social_security" inputmode="numeric">
+              </div>
+              <div class="col-md-3">
+                <label for="report-date" class="form-label">C. Date Of Report</label>
+                <input type="date" class="form-control" id="report-date" name="report_date">
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="organization" class="form-label">D. Organization</label>
+                <input type="text" class="form-control" id="organization" name="organization">
+              </div>
+              <div class="col-md-6">
+                <label for="form-filer" class="form-label">E. Name &amp; Title Of Person Filling Out This Form</label>
+                <input type="text" class="form-control" id="form-filer" name="form_filer">
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section" aria-labelledby="part-incident">
+            <h2 class="section-title" id="part-incident">Part II - Incident Report</h2>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label for="feelings-date" class="form-label">A. Date Feelings Were Hurt</label>
+                <input type="date" class="form-control" id="feelings-date" name="feelings_date">
+              </div>
+              <div class="col-md-4">
+                <label for="hurtfulness-time" class="form-label">B. Time Of Hurtfulness</label>
+                <input type="time" class="form-control" id="hurtfulness-time" name="hurtfulness_time">
+              </div>
+              <div class="col-md-4">
+                <label for="hurt-location" class="form-label">C. Location Of Hurtful Incident</label>
+                <input type="text" class="form-control" id="hurt-location" name="hurt_location" autocomplete="off">
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="real-person-name" class="form-label">D. Name Of Real Man/Woman Who Hurt Your Sensitive Feelings</label>
+                <input type="text" class="form-control" id="real-person-name" name="real_person_name" autocomplete="name">
+              </div>
+              <div class="col-md-6">
+                <label for="incident-organization" class="form-label">E. Organization</label>
+                <input type="text" class="form-control" id="incident-organization" name="incident_organization">
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section" aria-labelledby="part-injury">
+            <h2 class="section-title" id="part-injury">Part III - Injury</h2>
+
+            <fieldset class="mb-4">
+              <legend class="question-legend">1. Which ear were the words of hurtfulness spoken into?</legend>
+              <div class="row g-3">
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="hurt_ear" id="ear-left" value="left">
+                    <label class="form-check-label" for="ear-left">Left</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="hurt_ear" id="ear-right" value="right">
+                    <label class="form-check-label" for="ear-right">Right</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="hurt_ear" id="ear-both" value="both">
+                    <label class="form-check-label" for="ear-both">Both</label>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="mb-4">
+              <legend class="question-legend">2. Is there permanent feeling damage?</legend>
+              <div class="row g-3">
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="feeling_damage" id="damage-yes" value="yes">
+                    <label class="form-check-label" for="damage-yes">Yes</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="feeling_damage" id="damage-no" value="no">
+                    <label class="form-check-label" for="damage-no">No</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="feeling_damage" id="damage-maybe" value="maybe">
+                    <label class="form-check-label" for="damage-maybe">Maybe</label>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="mb-4">
+              <legend class="question-legend">3. Did you require a &ldquo;tissue&rdquo; for tears?</legend>
+              <div class="row g-3">
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tissue" id="tissue-yes" value="yes">
+                    <label class="form-check-label" for="tissue-yes">Yes</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tissue" id="tissue-no" value="no">
+                    <label class="form-check-label" for="tissue-no">No</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tissue" id="tissue-multiple" value="multiple">
+                    <label class="form-check-label" for="tissue-multiple">Multiple</label>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="mb-0">
+              <legend class="question-legend">4. Has this resulted in a traumatic brain injury?</legend>
+              <div class="row g-3">
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tbi" id="tbi-yes" value="yes">
+                    <label class="form-check-label" for="tbi-yes">Yes</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tbi" id="tbi-no" value="no">
+                    <label class="form-check-label" for="tbi-no">No</label>
+                  </div>
+                </div>
+                <div class="col-sm-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="tbi" id="tbi-maybe" value="maybe">
+                    <label class="form-check-label" for="tbi-maybe">Maybe</label>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+          </section>
+
+          <section class="form-section" aria-labelledby="part-reason">
+            <h2 class="section-title" id="part-reason">Part IV - Reason For Filing This Report (Mark all that apply)</h2>
+            <fieldset>
+              <legend class="visually-hidden">Select all applicable reasons</legend>
+              <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3 reason-grid">
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-thin-skinned" name="reasons" value="thin_skinned">
+                    <label class="form-check-label" for="reason-thin-skinned">I am thin skinned</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-wimp" name="reasons" value="wimp">
+                    <label class="form-check-label" for="reason-wimp">I am a wimp</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-hormones" name="reasons" value="hormones">
+                    <label class="form-check-label" for="reason-hormones">I have woman/man-like hormones</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-crybaby" name="reasons" value="crybaby">
+                    <label class="form-check-label" for="reason-crybaby">I am a crybaby</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-mommy" name="reasons" value="mommy">
+                    <label class="form-check-label" for="reason-mommy">I want my mommy</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-fix-problems" name="reasons" value="fix_problems">
+                    <label class="form-check-label" for="reason-fix-problems">Someone needs to fix my problems</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-easily-hurt" name="reasons" value="easily_hurt">
+                    <label class="form-check-label" for="reason-easily-hurt">My feelings are easily hurt</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-didnt-sign" name="reasons" value="did_not_sign_up">
+                    <label class="form-check-label" for="reason-didnt-sign">I didn't sign up for this</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-not-hero" name="reasons" value="not_hero">
+                    <label class="form-check-label" for="reason-not-hero">I was told that I am not a hero</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-weather" name="reasons" value="weather">
+                    <label class="form-check-label" for="reason-weather">The weather is too cold/hot</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-beers" name="reasons" value="beers">
+                    <label class="form-check-label" for="reason-beers">Two beers is not enough</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-hands" name="reasons" value="hands_should_be_in_pockets">
+                    <label class="form-check-label" for="reason-hands">My hands should be in pockets</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-no-brief" name="reasons" value="no_post_brief">
+                    <label class="form-check-label" for="reason-no-brief">I was not offered a post brief</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-requested-brief" name="reasons" value="requested_post_brief">
+                    <label class="form-check-label" for="reason-requested-brief">Someone requested a post brief</label>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="reason-all" name="reasons" value="all_of_the_above">
+                    <label class="form-check-label" for="reason-all">All of the above and more</label>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+          </section>
+
+          <section class="form-section" aria-labelledby="part-narrative">
+            <h2 class="section-title" id="part-narrative">Part V - Narrative (Tell us in your own sissy words how your feelings were hurt.)</h2>
+            <div>
+              <label for="narrative" class="visually-hidden">Narrative Description</label>
+              <textarea class="form-control" id="narrative" name="narrative"></textarea>
+            </div>
+          </section>
+
+          <section class="form-section mb-0" aria-labelledby="part-authentication">
+            <h2 class="section-title" id="part-authentication">Part VI - Authentication</h2>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="whiner-printed-name" class="form-label">A. Printed Name Of Whiner</label>
+                <input type="text" class="form-control" id="whiner-printed-name" name="whiner_printed_name" autocomplete="name">
+              </div>
+              <div class="col-md-6">
+                <label for="whiner-signature" class="form-label">B. Signature</label>
+                <input type="text" class="form-control" id="whiner-signature" name="whiner_signature" autocomplete="off">
+              </div>
+            </div>
+          </section>
+        </form>
+      </article>
+    </main>
+  </body>
+</html>
