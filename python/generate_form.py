@@ -422,7 +422,8 @@ def add_text_widget(
     font_size: float = DEFAULT_TEXT_SIZE,
     top_offset: float | None = None,
     tooltip: str | None = None,
-) -> None:
+    font_xref: int | None = None,
+) -> pm.Widget:
     if top_offset is None:
         top_offset = min(rect.height * 0.45, 20)
     field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y1 - 8)
@@ -462,19 +463,22 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
         _TOOLTIP_QUEUE[field_name].append(tooltip)
 
 
-def build_form(page: pm.Page) -> None:
+def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
     doc = page.parent
     signature_font_name = DEFAULT_TEXT_FONT
     signature_font_xref: int | None = None
-    signature_widget_xref: int | None = None
     signature_font_size = 16
+    
+    # Insert the custom font at the document level, not page level
     if SIGNATURE_FONT_PATH.exists():
         try:
+            # Use insert_font to embed the font
             signature_font_xref = page.insert_font(
                 fontname=SIGNATURE_FONT_NAME, fontfile=str(SIGNATURE_FONT_PATH)
             )
             signature_font_name = SIGNATURE_FONT_NAME
-        except Exception:
+        except Exception as e:
+            print(f"Failed to load signature font: {e}")
             signature_font_name = DEFAULT_TEXT_FONT
             signature_font_xref = None
 
@@ -709,38 +713,18 @@ def build_form(page: pm.Page) -> None:
         ],
     ):
         kwargs = {"tooltip": TEXT_TOOLTIPS.get(name)}
-        if name == "auth_whiner_signature":
-            kwargs.update({"font_name": signature_font_name, "font_size": signature_font_size})
-            add_text_widget(page, rect, name, **kwargs)
-            if (
-                signature_font_name == SIGNATURE_FONT_NAME
-                and isinstance(signature_font_xref, int)
-            ):
-                page_widget = next(
-                    (w for w in page.widgets() if w.field_name == name),
-                    None,
-                )
-                if page_widget:
-                    signature_widget_xref = page_widget.xref
-            continue
+        # Don't set custom font here - we'll do it after saving
+        # because widget.update() resets it
         add_text_widget(page, rect, name, **kwargs)
 
     apply_tooltips(page)
-    if (
-        signature_widget_xref is not None
-        and signature_font_name == SIGNATURE_FONT_NAME
-        and isinstance(signature_font_xref, int)
-    ):
-        doc.xref_set_key(
-            signature_widget_xref,
-            "DA",
-            f"(0 0 0 rg /{SIGNATURE_FONT_NAME} {signature_font_size} Tf)",
-        )
-        doc.xref_set_key(
-            signature_widget_xref,
-            "DR",
-            f"<< /Font << /{SIGNATURE_FONT_NAME} {signature_font_xref} 0 R >> >>",
-        )
+    
+    # Always return signature info for post-processing
+    # We need to set the font AFTER saving because widget.update() resets it
+    if signature_font_name == SIGNATURE_FONT_NAME and isinstance(signature_font_xref, int):
+        return (signature_font_xref, signature_font_name, signature_font_size)
+    
+    return None
 
 
 def remove_text_widget_borders(doc: pm.Document) -> None:
@@ -754,17 +738,84 @@ def remove_text_widget_borders(doc: pm.Document) -> None:
                     continue
 
 def main(output_path: str = "blank_form.pdf") -> None:
+    from pathlib import Path
+    import os
+    
     doc = pm.open()
     page = doc.new_page()
-    build_form(page)
+    signature_info = build_form(page)
     metadata = collect_metadata(doc)
     doc.save(output_path)
     doc.close()
 
     post_doc = pm.open(output_path)
     remove_text_widget_borders(post_doc)
-    post_doc.save(output_path, incremental=True, encryption=pm.PDF_ENCRYPT_KEEP)
+    
+    # Apply signature font settings after document is saved and reopened
+    if signature_info:
+        signature_font_xref, signature_font_name, signature_font_size = signature_info
+        if signature_font_xref and signature_font_name == SIGNATURE_FONT_NAME:
+            # Find the signature widget by field name
+            page = post_doc[0]
+            signature_widget = None
+            for widget in page.widgets():
+                if widget.field_name == "auth_whiner_signature":
+                    signature_widget = widget
+                    break
+            
+            if signature_widget:
+                try:
+                    # CRITICAL: Add the font to the AcroForm's DR FIRST
+                    # This is what PDF readers look at!
+                    catalog_xref = post_doc.pdf_catalog()
+                    acroform_ref = post_doc.xref_get_key(catalog_xref, "AcroForm")
+                    
+                    if acroform_ref[0] == "dict":
+                        # AcroForm is inline - we need to make it an indirect object
+                        fields_str = acroform_ref[1]
+                        
+                        # Find the /Fields array in the inline dict
+                        import re
+                        fields_match = re.search(r'/Fields\[(.*?)\]', fields_str)
+                        if fields_match:
+                            fields_content = fields_match.group(1)
+                            
+                            # Create new AcroForm object with DR
+                            new_acroform_xref = post_doc.get_new_xref()
+                            acroform_dict = f"<< /Fields [{fields_content}] /DR << /Font << /Helv /Helvetica /{SIGNATURE_FONT_NAME} {signature_font_xref} 0 R >> >> >>"
+                            
+                            post_doc.update_object(new_acroform_xref, acroform_dict)
+                            
+                            # Update catalog to point to new AcroForm
+                            post_doc.xref_set_key(catalog_xref, "AcroForm", f"{new_acroform_xref} 0 R")
+                    
+                    # Now set the DA (default appearance) string on the widget
+                    # This tells the PDF reader which font to use for THIS field
+                    post_doc.xref_set_key(
+                        signature_widget.xref,
+                        "DA",
+                        f"(0 0 0 rg /{SIGNATURE_FONT_NAME} {signature_font_size} Tf)",
+                    )
+                    
+                    # Remove the /AP (appearance stream) - it caches the old font
+                    # The PDF reader will regenerate it from the DA string
+                    post_doc.xref_set_key(signature_widget.xref, "AP", "null")
+                    
+                    # DO NOT call widget.update() here - it will reset everything!
+                    
+                except Exception as e:
+                    print(f"Error: {e}")
+                    import traceback
+                    traceback.print_exc()
+    
+    # Save to temporary file then replace the original
+    temp_path = f"{output_path}.tmp"
+    post_doc.save(temp_path)
     post_doc.close()
+    
+    # Replace the original with the temp file
+    os.replace(temp_path, output_path)
+    
     export_metadata(metadata, output_path)
 
 
