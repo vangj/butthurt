@@ -198,6 +198,22 @@ def inset_rect(rect: pm.Rect, dx: float = 4, dy: float = 4) -> pm.Rect:
     return pm.Rect(rect.x0 + dx, rect.y0 + dy, rect.x1 - dx, rect.y1 - dy)
 
 
+def insert_center_text(
+    page: pm.Page,
+    rect: pm.Rect,
+    text: str,
+    *,
+    font: str = "Helvetica",
+    size: float = 10,
+    color=BLACK,
+) -> None:
+    text_width = pm.get_text_length(text, fontname=font, fontsize=size)
+    x = rect.x0 + (rect.width - text_width) / 2
+    # approximate baseline position for vertical centering
+    baseline = rect.y0 + (rect.height + size) / 2 - size * 0.3
+    page.insert_text((x, baseline), text, fontname=font, fontsize=size, color=color)
+
+
 def insert_text(
     page: pm.Page,
     rect: pm.Rect,
@@ -214,13 +230,12 @@ def insert_text(
 def draw_section_header(page: pm.Page, left: float, right: float, y: float, text: str) -> float:
     rect = pm.Rect(left, y, right, y + 28)
     page.draw_rect(rect, color=BLACK)
-    insert_text(
+    insert_center_text(
         page,
         pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 4),
         text,
         font="Helvetica-Bold",
         size=10,
-        align=pm.TEXT_ALIGN_CENTER,
     )
     return rect.y1
 
@@ -352,9 +367,6 @@ def draw_checkbox_grid(
             widget.field_type = pm.PDF_WIDGET_TYPE_CHECKBOX
             widget.rect = box_rect
             widget.field_value = False
-            part_match = re.match(r"part(\d+)", field_prefix)
-            part_number = int(part_match.group(1)) if part_match else None
-            part_label = f"Part {PART_ROMANS.get(part_number, str(part_number))}" if part_number else "Part"
             widget.border_color = BLACK
             widget.fill_color = (1, 1, 1)
             page.add_widget(widget)
@@ -456,12 +468,12 @@ def build_form(page: pm.Page) -> None:
 
     header_height = 56
     header_rect = pm.Rect(left, y, right, y + header_height)
-    page.insert_textbox(
+    insert_center_text(
+        page,
         header_rect,
         "BUTT HURT REPORT",
-        fontname="Helvetica-Bold",
-        fontsize=30,
-        align=pm.TEXT_ALIGN_CENTER,
+        font="Helvetica-Bold",
+        size=30,
         color=BLACK,
     )
     y += header_height
@@ -470,13 +482,12 @@ def build_form(page: pm.Page) -> None:
     info_height = 26
     info_rect = pm.Rect(left, y, right, y + info_height)
     page.draw_rect(info_rect, color=BLACK, width=1)
-    insert_text(
+    insert_center_text(
         page,
         info_rect,
         "DATA REQUIRED BY THE PRIVACY ACT OF 1974",
         font="Helvetica-Bold",
         size=11,
-        align=pm.TEXT_ALIGN_CENTER,
     )
     y += info_height
 
