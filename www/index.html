@@ -532,7 +532,6 @@
 
       const signatureFontUrl = new URL("fonts/GreatVibes-Regular.ttf", window.location.href);
       let signatureFontBytesPromise = null;
-      let fontkitModulePromise = null;
 
       const loadSignatureFontBytes = async () => {
         if (!signatureFontBytesPromise) {
@@ -549,20 +548,6 @@
             });
         }
         return signatureFontBytesPromise;
-      };
-
-      const loadFontkit = async () => {
-        if (!fontkitModulePromise) {
-          fontkitModulePromise = import(
-            "https://cdn.skypack.dev/@pdf-lib/fontkit@1.5.1?min"
-          )
-            .then((module) => module?.default ?? module)
-            .catch((error) => {
-              console.warn("Unable to load fontkit. Signature will use default font.", error);
-              return null;
-            });
-        }
-        return fontkitModulePromise;
       };
 
       const syncFieldValue = (source, target) => {
@@ -674,14 +659,28 @@
           }
           const pdfBytes = await response.arrayBuffer();
           const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-          const fontkit = await loadFontkit();
-          if (fontkit && typeof pdfDoc.registerFontkit === "function") {
+          
+          // Load and register fontkit for custom fonts
+          let signatureFont = null;
+          try {
+            // Import fontkit from skypack (which bundles dependencies)
+            const fontkitModule = await import('https://cdn.skypack.dev/@pdf-lib/fontkit@1.1.1');
+            const fontkit = fontkitModule.default || fontkitModule;
             pdfDoc.registerFontkit(fontkit);
+            
+            // Now we can embed the custom font
+            const signatureFontBytes = await loadSignatureFontBytes();
+            signatureFont = await pdfDoc.embedFont(signatureFontBytes);
+            console.log("Custom signature font loaded successfully");
+          } catch (error) {
+            console.error("Could not load custom signature font:", error);
+            signatureFont = null;
           }
+          
           const form = pdfDoc.getForm();
           const groupedFields = groupFieldsByName(form);
-          const signatureField = form.getTextField("auth_whiner_signature");
 
+          // Set all text fields EXCEPT signature
           setTextFields(form, {
             admin_whiner_name: document.getElementById("part-i-a").value,
             admin_social_security: document.getElementById("part-i-b").value,
@@ -694,18 +693,37 @@
             incident_offender_name: document.getElementById("part-ii-d").value,
             incident_offender_org: document.getElementById("part-ii-e").value,
             narrative_text: document.getElementById("part-v").value,
-            auth_whiner_name: document.getElementById("part-vi-a").value,
-            auth_whiner_signature: document.getElementById("part-vi-b").value
+            auth_whiner_name: document.getElementById("part-vi-a").value
           });
 
-          if (signatureField) {
+          // Handle signature field separately - we'll draw it manually with custom font
+          const signatureField = form.getTextField("auth_whiner_signature");
+          const signatureValue = document.getElementById("part-vi-b").value || "";
+          
+          // Get the signature field's position and dimensions BEFORE clearing it
+          let signatureRect = null;
+          let signaturePageIndex = 0;
+          
+          if (signatureField && signatureValue) {
             try {
-              const signatureFontBytes = await loadSignatureFontBytes();
-              const signatureFont = await pdfDoc.embedFont(signatureFontBytes);
-              signatureField.updateAppearances(signatureFont);
+              const widgets = signatureField.acroField.getWidgets();
+              if (widgets.length > 0) {
+                const widget = widgets[0];
+                signatureRect = widget.getRectangle();
+                console.log("Signature rect:", signatureRect);
+                
+                // The signature is on page 0 (first page)
+                signaturePageIndex = 0;
+              }
             } catch (error) {
-              console.warn("Falling back to default signature font.", error);
+              console.warn("Could not get signature field rect:", error);
             }
+            
+            // Clear the signature field text (we'll draw it manually)
+            signatureField.setText("");
+          } else if (signatureField && !signatureValue) {
+            // If no signature value, just clear the field
+            signatureField.setText("");
           }
 
           setCheckBoxes(form, {
@@ -772,6 +790,56 @@
           }
 
           form.flatten();
+
+          // After flattening, manually draw the signature with custom font
+          if (signatureValue && signatureFont && signatureRect) {
+            try {
+              const page = pdfDoc.getPages()[signaturePageIndex];
+              const fontSize = 16;
+              
+              // Get text dimensions
+              const textWidth = signatureFont.widthOfTextAtSize(signatureValue, fontSize);
+              const textHeight = signatureFont.heightAtSize(fontSize);
+              
+              // PDF coordinates: origin is bottom-left
+              // PyMuPDF rect: x0=305.5, y0=794, x1=561, y1=808 (height=14)
+              // We need to draw the text baseline at approximately y0 + (height/2)
+              
+              const xPosition = signatureRect.x + 8;
+              const yPosition = signatureRect.y + (signatureRect.height / 2) - (fontSize * 0.35);
+              
+              console.log("Drawing signature:", {
+                text: signatureValue,
+                fontSize,
+                rect: {
+                  x: signatureRect.x,
+                  y: signatureRect.y,
+                  width: signatureRect.width,
+                  height: signatureRect.height
+                },
+                drawPosition: { x: xPosition, y: yPosition }
+              });
+              
+              // Draw the signature text
+              page.drawText(signatureValue, {
+                x: xPosition,
+                y: yPosition,
+                size: fontSize,
+                font: signatureFont,
+                color: { type: 'RGB', red: 0, green: 0, blue: 0 }
+              });
+              
+              console.log("Signature drawn successfully");
+            } catch (error) {
+              console.error("Could not draw signature with custom font:", error);
+            }
+          } else {
+            console.log("Skipping signature draw:", {
+              hasValue: !!signatureValue,
+              hasFont: !!signatureFont,
+              hasRect: !!signatureRect
+            });
+          }
 
           const filledBytes = await pdfDoc.save();
           const blob = new Blob([filledBytes], { type: "application/pdf" });
