@@ -427,9 +427,10 @@ def add_text_widget(
     widget.text_font = "Helvetica"
     widget.text_fontsize = 10
     widget.text_color = BLACK
-    widget.border_color = BLACK
+    widget.border_color = None
     widget.border_width = 0
     page.add_widget(widget)
+    widget.update()
     if tooltip:
         _TOOLTIP_QUEUE[field_name].append(tooltip)
 
@@ -443,10 +444,11 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
     widget.text_font = "Helvetica"
     widget.text_fontsize = 10
     widget.text_color = BLACK
-    widget.border_color = BLACK
+    widget.border_color = None
     widget.border_width = 0
     widget.field_flags = pm.PDF_TX_FIELD_IS_MULTILINE
     page.add_widget(widget)
+    widget.update()
     if tooltip:
         _TOOLTIP_QUEUE[field_name].append(tooltip)
 
@@ -686,14 +688,30 @@ def build_form(page: pm.Page) -> None:
 
     apply_tooltips(page)
 
+
+def remove_text_widget_borders(doc: pm.Document) -> None:
+    for page in doc:
+        for widget in page.widgets():
+            if widget.field_type == pm.PDF_WIDGET_TYPE_TEXT:
+                try:
+                    doc.xref_set_key(widget.xref, "Border", "[0 0 0]")
+                    doc.xref_set_key(widget.xref, "BS", "<< /S /S /W 0 >>")
+                except Exception:
+                    continue
+
 def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
     page = doc.new_page()
     build_form(page)
     metadata = collect_metadata(doc)
     doc.save(output_path)
-    export_metadata(metadata, output_path)
     doc.close()
+
+    post_doc = pm.open(output_path)
+    remove_text_widget_borders(post_doc)
+    post_doc.save(output_path, incremental=True, encryption=pm.PDF_ENCRYPT_KEEP)
+    post_doc.close()
+    export_metadata(metadata, output_path)
 
 
 if __name__ == "__main__":
