@@ -211,8 +211,6 @@ def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, top_offset
     widget.border_color = BLACK
     widget.border_width = 0
     page.add_widget(widget)
-    widget.rect = field_rect
-    widget.update()
 
 
 def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
@@ -228,20 +226,16 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
     widget.border_width = 0
     widget.field_flags = pm.PDF_TX_FIELD_IS_MULTILINE
     page.add_widget(widget)
-    widget.rect = field_rect
-    widget.update()
 
 
 def build_form(page: pm.Page) -> None:
     width = page.rect.width
     height = page.rect.height
-    side_margin = 26
-    top_margin = 26
-    bottom_margin = 6
-    left = side_margin
-    right = width - side_margin
-    top = top_margin
-    bottom = height - bottom_margin
+    margin = 26
+    left = margin
+    right = width - margin
+    top = margin
+    bottom = height - margin
     content_width = right - left
 
     outer_rect = pm.Rect(left, top, right, bottom)
@@ -440,16 +434,14 @@ def build_form(page: pm.Page) -> None:
         y,
         "PART V - NARRATIVE (Tell us in your own sissy words how your feelings were hurt.)",
     )
-    narrative_height = 85
+    narrative_height = 50
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
     page.draw_rect(narrative_rect, color=BLACK, width=1)
     add_textarea_widget(page, narrative_rect, "part5_narrative")
     y = narrative_rect.y1
 
     y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
-    signature_height = bottom - y
-    if signature_height < 24:
-        signature_height = 24
+    signature_height = 40
     y, auth_rects = draw_signature_row(
         page,
         left,
@@ -468,7 +460,7 @@ def build_form(page: pm.Page) -> None:
             "auth_whiner_signature",
         ],
     ):
-        add_text_widget(page, rect, name, top_offset=6)
+        add_text_widget(page, rect, name)
 
 def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
