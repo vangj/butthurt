@@ -8,6 +8,12 @@ import pymupdf as pm
 
 BLACK = (0, 0, 0)
 
+DEFAULT_TEXT_FONT = "Helvetica"
+DEFAULT_TEXT_SIZE = 10
+FONT_DIR = Path(__file__).resolve().parent / "fonts"
+SIGNATURE_FONT_PATH = FONT_DIR / "GreatVibes-Regular.ttf"
+SIGNATURE_FONT_NAME = "GreatVibes"
+
 PART_ROMANS = {
     1: "I",
     2: "II",
@@ -412,6 +418,8 @@ def add_text_widget(
     rect: pm.Rect,
     field_name: str,
     *,
+    font_name: str = DEFAULT_TEXT_FONT,
+    font_size: float = DEFAULT_TEXT_SIZE,
     top_offset: float | None = None,
     tooltip: str | None = None,
 ) -> None:
@@ -424,8 +432,8 @@ def add_text_widget(
     widget.field_name = field_name
     widget.field_type = pm.PDF_WIDGET_TYPE_TEXT
     widget.rect = field_rect
-    widget.text_font = "Helvetica"
-    widget.text_fontsize = 10
+    widget.text_font = font_name
+    widget.text_fontsize = font_size
     widget.text_color = BLACK
     widget.border_color = None
     widget.border_width = 0
@@ -454,6 +462,14 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
 
 
 def build_form(page: pm.Page) -> None:
+    signature_font_name = DEFAULT_TEXT_FONT
+    if SIGNATURE_FONT_PATH.exists():
+        try:
+            page.insert_font(fontname=SIGNATURE_FONT_NAME, fontfile=str(SIGNATURE_FONT_PATH))
+            signature_font_name = SIGNATURE_FONT_NAME
+        except Exception:
+            signature_font_name = DEFAULT_TEXT_FONT
+
     width = page.rect.width
     height = page.rect.height
     margin = 26
@@ -684,7 +700,10 @@ def build_form(page: pm.Page) -> None:
             "auth_whiner_signature",
         ],
     ):
-        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
+        kwargs = {"tooltip": TEXT_TOOLTIPS.get(name)}
+        if name == "auth_whiner_signature":
+            kwargs.update({"font_name": signature_font_name, "font_size": 16})
+        add_text_widget(page, rect, name, **kwargs)
 
     apply_tooltips(page)
 

@@ -530,6 +530,41 @@
       const offenderInput = document.getElementById("part-ii-d");
       const ssnInput = document.getElementById("part-i-b");
 
+      const signatureFontUrl = new URL("fonts/GreatVibes-Regular.ttf", window.location.href);
+      let signatureFontBytesPromise = null;
+      let fontkitModulePromise = null;
+
+      const loadSignatureFontBytes = async () => {
+        if (!signatureFontBytesPromise) {
+          signatureFontBytesPromise = fetch(signatureFontUrl)
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error("Unable to load signature font.");
+              }
+              return response.arrayBuffer();
+            })
+            .catch((error) => {
+              signatureFontBytesPromise = null;
+              throw error;
+            });
+        }
+        return signatureFontBytesPromise;
+      };
+
+      const loadFontkit = async () => {
+        if (!fontkitModulePromise) {
+          fontkitModulePromise = import(
+            "https://cdn.skypack.dev/@pdf-lib/fontkit@1.5.1?min"
+          )
+            .then((module) => module?.default ?? module)
+            .catch((error) => {
+              console.warn("Unable to load fontkit. Signature will use default font.", error);
+              return null;
+            });
+        }
+        return fontkitModulePromise;
+      };
+
       const syncFieldValue = (source, target) => {
         if (!source || !target) return;
         if (target.value !== source.value) {
@@ -639,8 +674,13 @@
           }
           const pdfBytes = await response.arrayBuffer();
           const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+          const fontkit = await loadFontkit();
+          if (fontkit && typeof pdfDoc.registerFontkit === "function") {
+            pdfDoc.registerFontkit(fontkit);
+          }
           const form = pdfDoc.getForm();
           const groupedFields = groupFieldsByName(form);
+          const signatureField = form.getTextField("auth_whiner_signature");
 
           setTextFields(form, {
             admin_whiner_name: document.getElementById("part-i-a").value,
@@ -657,6 +697,16 @@
             auth_whiner_name: document.getElementById("part-vi-a").value,
             auth_whiner_signature: document.getElementById("part-vi-b").value
           });
+
+          if (signatureField) {
+            try {
+              const signatureFontBytes = await loadSignatureFontBytes();
+              const signatureFont = await pdfDoc.embedFont(signatureFontBytes);
+              signatureField.updateAppearances(signatureFont);
+            } catch (error) {
+              console.warn("Falling back to default signature font.", error);
+            }
+          }
 
           setCheckBoxes(form, {
             reason_filing_1: document.getElementById("part-iv-1").checked,
