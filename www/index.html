@@ -537,8 +537,6 @@
         }
       };
 
-      let signatureManuallyEdited = false;
-
       const normalizeSignatureText = (value) =>
         value.trim().replace(/\s+/g, " ");
 
@@ -547,23 +545,10 @@
         const trimmed = rawValue ? normalizeSignatureText(rawValue) : "";
         if (!trimmed) {
           signatureInput.value = "";
-          signatureManuallyEdited = false;
           return;
         }
-        if (signatureManuallyEdited) return;
         signatureInput.value = trimmed;
       };
-
-      signatureInput?.addEventListener("input", () => {
-        signatureManuallyEdited = Boolean(signatureInput.value.trim());
-      });
-
-      signatureInput?.addEventListener("blur", () => {
-        if (!signatureInput.value.trim()) {
-          signatureManuallyEdited = false;
-          updateSignatureFromName(authWhinerNameInput?.value ?? "");
-        }
-      });
 
       whinerNameInput?.addEventListener("input", () => {
         syncFieldValue(whinerNameInput, authWhinerNameInput);
