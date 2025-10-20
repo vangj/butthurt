@@ -161,6 +161,14 @@
         color: #fff;
       }
 
+      @media (max-width: 915px) {
+        .form-section .row > [class*="col-"],
+        .form-section .row > .col {
+          flex: 0 0 100%;
+          max-width: 100%;
+        }
+      }
+
       @media (max-width: 576px) {
         .sheet {
           padding: 1.75rem 1.25rem;
@@ -211,7 +219,7 @@
                 <input type="text" class="form-control" id="part-i-d" name="part_i_d">
               </div>
               <div class="col-md-6">
-                <label for="part-i-e" class="form-label">E. Name &amp; Title Of Person Filling Out This Form</label>
+                <label for="part-i-e" class="form-label">E. Title Of Person Filling Out This Form</label>
                 <input type="text" class="form-control" id="part-i-e" name="part_i_e">
               </div>
             </div>
@@ -235,7 +243,7 @@
             </div>
             <div class="row g-3">
               <div class="col-md-6">
-                <label for="part-ii-d" class="form-label">D. Name Of Real Man/Woman Who Hurt Your Sensitive Feelings</label>
+                <label for="part-ii-d" class="form-label">D. Who Hurt Your Sensitive Feelings</label>
                 <input type="text" class="form-control" id="part-ii-d" name="part_ii_d" autocomplete="name" required>
               </div>
               <div class="col-md-6">
