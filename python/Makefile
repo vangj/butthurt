@@ -9,4 +9,4 @@ generate:
 	python generate_form.py
 
 copy:
-	cp -f blank_form.pdf ../www/blank_form.pdf
+	cp -f blank_form.pdf ../www/pdf/blank_form.pdf

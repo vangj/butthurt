@@ -518,8 +518,8 @@
   <script type="module">
     import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
 
-    const blankPdfUrl = new URL("blank_form.pdf", window.location.href);
-    const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
+    const blankPdfUrl = new URL("pdf/blank_form.pdf", window.location.href);
+    const rendererWorkerUrl = new URL("./js/pdf-renderer.worker.js", import.meta.url);
     const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
     let signatureFontReadyPromise = null;
 
