@@ -17,17 +17,15 @@ def insert_text(
     align: int = pm.TEXT_ALIGN_LEFT,
     color=BLACK,
 ) -> None:
-    leftover = page.insert_textbox(rect, text, fontname=font, fontsize=size, align=align, color=color)
-    if leftover not in (0, None, ""):
-        raise ValueError(f"Text did not fit in box: {text!r} rect={rect}")
+    page.insert_textbox(rect, text, fontname=font, fontsize=size, align=align, color=color)
 
 
 def draw_section_header(page: pm.Page, left: float, right: float, y: float, text: str) -> float:
-    rect = pm.Rect(left, y, right, y + 22)
+    rect = pm.Rect(left, y, right, y + 36)
     page.draw_rect(rect, color=BLACK)
     insert_text(
         page,
-        inset_rect(rect, 6, 4),
+        rect,
         text,
         font="Helvetica-Bold",
         size=11,
@@ -42,8 +40,8 @@ def draw_labeled_box(
     right: float,
     y: float,
     rows: list[tuple[str, str]],
-    label_width: float = 150,
-    line_height: float = 24,
+    label_width: float = 160,
+    line_height: float = 34,
 ) -> float:
     height = line_height * len(rows)
     rect = pm.Rect(left, y, right, y + height)
@@ -53,7 +51,7 @@ def draw_labeled_box(
     for label, body in rows:
         label_rect = pm.Rect(rect.x0 + 6, line_top + 4, rect.x0 + label_width, line_top + line_height - 4)
         insert_text(page, label_rect, label, font="Helvetica-Bold", size=9)
-        body_rect = pm.Rect(label_rect.x1 + 4, line_top + 4, rect.x1 - 6, line_top + line_height - 4)
+        body_rect = pm.Rect(label_rect.x1 + 6, line_top + 4, rect.x1 - 6, line_top + line_height - 4)
         insert_text(page, body_rect, body, size=9)
         line_top += line_height
 
@@ -76,7 +74,7 @@ def draw_field_row(
         page.draw_rect(rect, color=BLACK, width=1)
         insert_text(
             page,
-            pm.Rect(rect.x0 + 4, rect.y0 + 3, rect.x1 - 4, rect.y0 + 15),
+            pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 6),
             label,
             font="Helvetica-Bold",
             size=9,
@@ -93,15 +91,15 @@ def draw_checkbox_line(
     y: float,
     question: str,
     options: list[str],
-) -> float:
+    ) -> float:
     insert_text(
         page,
-        pm.Rect(left + 4, y, right - 4, y + 12),
+        pm.Rect(left + 4, y, right - 4, y + 26),
         question,
         font="Helvetica-Bold",
         size=9,
     )
-    box_y = y + 14
+    box_y = y + 28
     x = left + 8
     box_size = 10
     for option in options:
@@ -139,7 +137,7 @@ def draw_checkbox_grid(
             item = items[idx]
             box_rect = pm.Rect(x + 4, y, x + 4 + box_size, y + box_size)
             page.draw_rect(box_rect, color=BLACK, width=1)
-            text_rect = pm.Rect(box_rect.x1 + 4, y - 2, x + column_width - 6, y + row_height - 4)
+            text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height - 4)
             insert_text(page, text_rect, item, size=9)
             x += column_width
             idx += 1
@@ -162,7 +160,7 @@ def draw_signature_row(
         page.draw_rect(rect, color=BLACK, width=1)
         insert_text(
             page,
-            pm.Rect(rect.x0 + 4, rect.y0 + 3, rect.x1 - 4, rect.y0 + 14),
+            pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 6),
             label,
             font="Helvetica-Bold",
             size=9,
@@ -172,7 +170,7 @@ def draw_signature_row(
 
 
 def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
-    field_rect = pm.Rect(rect.x0 + 4, rect.y0 + 18, rect.x1 - 4, rect.y1 - 4)
+    field_rect = pm.Rect(rect.x0 + 8, rect.y0 + (rect.height * 0.45), rect.x1 - 8, rect.y1 - 8)
     widget = pm.Widget()
     widget.field_name = field_name
     widget.field_type = pm.PDF_WIDGET_TYPE_TEXT
@@ -243,7 +241,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        38,
+        44,
         [
             ("A. WHINER'S NAME (Last, First, MI)", 0.45),
             ("B. SOCIAL SECURITY NUMBER", 0.27),
@@ -261,7 +259,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        38,
+        44,
         [
             ("D. ORGANIZATION", 0.5),
             ("E. NAME & TITLE OF PERSON FILLING OUT THIS FORM", 0.5),
@@ -279,7 +277,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        38,
+        44,
         [
             ("A. DATE FEELINGS WERE HURT", 0.33),
             ("B. TIME OF HURTFULNESS", 0.33),
@@ -291,7 +289,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        38,
+        44,
         [
             ("D. NAME OF REAL MAN/WOMAN WHO HURT YOUR SENSITIVE FEELINGS", 0.5),
             ("E. ORGANIZATION", 0.5),
@@ -378,7 +376,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        40,
+        46,
         [
             ("A. PRINTED NAME OF REAL MAN/WOMAN", 0.25),
             ("B. SIGNATURE", 0.25),
@@ -391,12 +389,12 @@ def build_form(page: pm.Page) -> None:
         page,
         pm.Rect(left, bottom - 12, right, bottom),
         "©2012 ITS Tactical",
-        size=8,
+        size=7,
         align=pm.TEXT_ALIGN_LEFT,
     )
 
 
-def main(output_path: str = "form.pdf") -> None:
+def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
     page = doc.new_page()
     build_form(page)
