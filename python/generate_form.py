@@ -314,7 +314,7 @@ def build_form(page: pm.Page) -> None:
     ):
         add_text_widget(page, rect, name)
 
-    y = draw_section_header(page, left, right, y, "E. INJURY (Mark all that apply)")
+    y = draw_section_header(page, left, right, y, "PART III - INJURY (Mark all that apply)")
     y = draw_checkbox_line(
         page,
         left,
@@ -349,7 +349,7 @@ def build_form(page: pm.Page) -> None:
     )
 
     y = draw_section_header(
-        page, left, right, y, "F. REASON FOR FILING THIS REPORT (Mark all that apply)"
+        page, left, right, y, "PART IV - REASON FOR FILING THIS REPORT (Mark all that apply)"
     )
     y = draw_checkbox_grid(
         page,
@@ -381,14 +381,14 @@ def build_form(page: pm.Page) -> None:
         left,
         right,
         y,
-        "G. NARRATIVE (Tell us in your own sissy words how your feelings were hurt.)",
+        "PART V - NARRATIVE (Tell us in your own sissy words how your feelings were hurt.)",
     )
     narrative_height = 50
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
     page.draw_rect(narrative_rect, color=BLACK, width=1)
     y = narrative_rect.y1
 
-    y = draw_section_header(page, left, right, y, "PART III - AUTHENTICATION")
+    y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
     y = draw_signature_row(
         page,
         left,
