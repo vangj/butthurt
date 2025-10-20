@@ -28,7 +28,7 @@ def draw_section_header(page: pm.Page, left: float, right: float, y: float, text
         pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 4),
         text,
         font="Helvetica-Bold",
-        size=11,
+        size=10,
         align=pm.TEXT_ALIGN_CENTER,
     )
     return rect.y1
@@ -41,7 +41,7 @@ def draw_labeled_box(
     y: float,
     rows: list[tuple[str, str]],
     label_width: float = 160,
-    line_height: float = 34,
+    line_height: float = 26,
 ) -> float:
     height = line_height * len(rows)
     rect = pm.Rect(left, y, right, y + height)
@@ -50,9 +50,9 @@ def draw_labeled_box(
     line_top = rect.y0
     for label, body in rows:
         label_rect = pm.Rect(rect.x0 + 6, line_top + 4, rect.x0 + label_width, line_top + line_height - 4)
-        insert_text(page, label_rect, label, font="Helvetica-Bold", size=9)
+        insert_text(page, label_rect, label, font="Helvetica-Bold", size=8)
         body_rect = pm.Rect(label_rect.x1 + 6, line_top + 4, rect.x1 - 6, line_top + line_height - 4)
-        insert_text(page, body_rect, body, size=9)
+        insert_text(page, body_rect, body, size=8)
         line_top += line_height
 
     return rect.y1
@@ -74,10 +74,10 @@ def draw_field_row(
         page.draw_rect(rect, color=BLACK, width=1)
         insert_text(
             page,
-            pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 6),
+            pm.Rect(rect.x0 + 4, rect.y0 + 4, rect.x1 - 4, rect.y1 - 6),
             label,
             font="Helvetica-Bold",
-            size=9,
+            size=7,
         )
         x += field_width
         rects.append((rect, label))
@@ -97,9 +97,9 @@ def draw_checkbox_line(
         pm.Rect(left + 4, y, right - 4, y + 26),
         question,
         font="Helvetica-Bold",
-        size=9,
+        size=8,
     )
-    box_y = y + 28
+    box_y = y + 22
     x = left + 8
     box_size = 10
     for option in options:
@@ -109,10 +109,10 @@ def draw_checkbox_line(
             page,
             pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 150, box_rect.y1 + 10),
             option,
-            size=9,
+            size=8,
         )
         x = box_rect.x1 + 150
-    return box_y + box_size + 10
+    return box_y + box_size + 4
 
 
 def draw_checkbox_grid(
@@ -122,7 +122,7 @@ def draw_checkbox_grid(
     y: float,
     items: list[str],
     columns: int,
-    row_height: float = 28,
+    row_height: float = 18,
 ) -> float:
     content_width = right - left
     column_width = content_width / columns
@@ -138,7 +138,7 @@ def draw_checkbox_grid(
             box_rect = pm.Rect(x + 4, y, x + 4 + box_size, y + box_size)
             page.draw_rect(box_rect, color=BLACK, width=1)
             text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height - 4)
-            insert_text(page, text_rect, item, size=9)
+            insert_text(page, text_rect, item, size=8)
             x += column_width
             idx += 1
         y += row_height
@@ -160,10 +160,10 @@ def draw_signature_row(
         page.draw_rect(rect, color=BLACK, width=1)
         insert_text(
             page,
-            pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 6),
+            pm.Rect(rect.x0 + 4, rect.y0 + 4, rect.x1 - 4, rect.y1 - 6),
             label,
             font="Helvetica-Bold",
-            size=9,
+            size=7,
         )
         x += block_width
     return y + height
@@ -198,7 +198,7 @@ def build_form(page: pm.Page) -> None:
 
     y = top
 
-    header_height = 54
+    header_height = 50
     header_rect = pm.Rect(left, y, right, y + header_height)
     page.insert_textbox(
         header_rect,
@@ -211,7 +211,7 @@ def build_form(page: pm.Page) -> None:
     y += header_height
     page.draw_line((left, y), (right, y))
 
-    info_height = 28
+    info_height = 26
     info_rect = pm.Rect(left, y, right, y + info_height)
     page.draw_rect(info_rect, color=BLACK, width=1)
     insert_text(
@@ -219,7 +219,7 @@ def build_form(page: pm.Page) -> None:
         info_rect,
         "DATA REQUIRED BY THE PRIVACY ACT OF 1974",
         font="Helvetica-Bold",
-        size=12,
+        size=11,
         align=pm.TEXT_ALIGN_CENTER,
     )
     y += info_height
@@ -241,7 +241,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        44,
+        34,
         [
             ("A. WHINER'S NAME (Last, First, MI)", 0.45),
             ("B. SOCIAL SECURITY NUMBER", 0.27),
@@ -259,7 +259,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        44,
+        34,
         [
             ("D. ORGANIZATION", 0.5),
             ("E. NAME & TITLE OF PERSON FILLING OUT THIS FORM", 0.5),
@@ -277,7 +277,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        44,
+        34,
         [
             ("A. DATE FEELINGS WERE HURT", 0.33),
             ("B. TIME OF HURTFULNESS", 0.33),
@@ -289,7 +289,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        44,
+        34,
         [
             ("D. NAME OF REAL MAN/WOMAN WHO HURT YOUR SENSITIVE FEELINGS", 0.5),
             ("E. ORGANIZATION", 0.5),
@@ -365,7 +365,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "G. NARRATIVE (Tell us in your own sissy words how your feelings were hurt.)",
     )
-    narrative_height = 120
+    narrative_height = 50
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
     page.draw_rect(narrative_rect, color=BLACK, width=1)
     y = narrative_rect.y1
@@ -376,7 +376,7 @@ def build_form(page: pm.Page) -> None:
         left,
         y,
         content_width,
-        46,
+        32,
         [
             ("A. PRINTED NAME OF REAL MAN/WOMAN", 0.25),
             ("B. SIGNATURE", 0.25),
@@ -387,7 +387,7 @@ def build_form(page: pm.Page) -> None:
 
     insert_text(
         page,
-        pm.Rect(left, bottom - 12, right, bottom),
+        pm.Rect(left, bottom + 2, right, bottom + 14),
         "©2012 ITS Tactical",
         size=7,
         align=pm.TEXT_ALIGN_LEFT,
