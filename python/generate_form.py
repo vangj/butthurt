@@ -195,8 +195,12 @@ def draw_signature_row(
     return y + height, rects
 
 
-def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
-    field_rect = pm.Rect(rect.x0 + 8, rect.y0 + (rect.height * 0.45), rect.x1 - 8, rect.y1 - 8)
+def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, top_offset: float | None = None) -> None:
+    if top_offset is None:
+        top_offset = min(rect.height * 0.45, 20)
+    field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y1 - 8)
+    if field_rect.height <= 0:
+        field_rect = pm.Rect(rect.x0 + 8, rect.y0 + 12, rect.x1 - 8, rect.y1 - 8)
     widget = pm.Widget()
     widget.field_name = field_name
     widget.field_type = pm.PDF_WIDGET_TYPE_TEXT
@@ -207,6 +211,8 @@ def add_text_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
     widget.border_color = BLACK
     widget.border_width = 0
     page.add_widget(widget)
+    widget.rect = field_rect
+    widget.update()
 
 
 def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
@@ -222,16 +228,20 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str) -> None:
     widget.border_width = 0
     widget.field_flags = pm.PDF_TX_FIELD_IS_MULTILINE
     page.add_widget(widget)
+    widget.rect = field_rect
+    widget.update()
 
 
 def build_form(page: pm.Page) -> None:
     width = page.rect.width
     height = page.rect.height
-    margin = 26
-    left = margin
-    right = width - margin
-    top = margin
-    bottom = height - margin
+    side_margin = 26
+    top_margin = 26
+    bottom_margin = 6
+    left = side_margin
+    right = width - side_margin
+    top = top_margin
+    bottom = height - bottom_margin
     content_width = right - left
 
     outer_rect = pm.Rect(left, top, right, bottom)
@@ -437,12 +447,15 @@ def build_form(page: pm.Page) -> None:
     y = narrative_rect.y1
 
     y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
+    signature_height = bottom - y
+    if signature_height < 24:
+        signature_height = 24
     y, auth_rects = draw_signature_row(
         page,
         left,
         y,
         content_width,
-        40,
+        signature_height,
         [
             ("A. PRINTED NAME OF WHINER", 0.5),
             ("B. SIGNATURE", 0.5),
@@ -455,7 +468,7 @@ def build_form(page: pm.Page) -> None:
             "auth_whiner_signature",
         ],
     ):
-        add_text_widget(page, rect, name)
+        add_text_widget(page, rect, name, top_offset=6)
 
 def main(output_path: str = "blank_form.pdf") -> None:
     doc = pm.open()
