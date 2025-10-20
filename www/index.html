@@ -456,19 +456,7 @@
       </article>
     </main>
     <script type="module">
-      import { PDFDocument, PDFName } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
-
-      const groupFieldsByName = (form) => {
-        const grouped = new Map();
-        for (const field of form.getFields()) {
-          const name = field.getName();
-          if (!grouped.has(name)) {
-            grouped.set(name, []);
-          }
-          grouped.get(name).push(field);
-        }
-        return grouped;
-      };
+      import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
 
       const setTextFields = (form, mappings) => {
         for (const [fieldName, value] of Object.entries(mappings)) {
@@ -492,33 +480,33 @@
         injury_question1: {
           htmlName: "part_iii_1",
           matchers: {
-            left: "option is left",
-            right: "option is right",
-            both: "option is both"
+            left: { tooltip: "option is left", onValue: "LEFT" },
+            right: { tooltip: "option is right", onValue: "RIGHT" },
+            both: { tooltip: "option is both", onValue: "BOTH" }
           }
         },
         injury_question2: {
           htmlName: "part_iii_2",
           matchers: {
-            yes: "option is yes",
-            no: "option is no",
-            maybe: "option is maybe"
+            yes: { tooltip: "option is yes", onValue: "YES" },
+            no: { tooltip: "option is no", onValue: "NO" },
+            maybe: { tooltip: "option is maybe", onValue: "MAYBE" }
           }
         },
         injury_question3: {
           htmlName: "part_iii_3",
           matchers: {
-            yes: "option is yes",
-            no: "option is no",
-            multiple: "option is multiple"
+            yes: { tooltip: "option is yes", onValue: "YES" },
+            no: { tooltip: "option is no", onValue: "NO" },
+            multiple: { tooltip: "option is multiple", onValue: "MULTIPLE" }
           }
         },
         injury_question4: {
           htmlName: "part_iii_4",
           matchers: {
-            yes: "option is yes",
-            no: "option is no",
-            maybe: "option is maybe"
+            yes: { tooltip: "option is yes", onValue: "YES" },
+            no: { tooltip: "option is no", onValue: "NO" },
+            maybe: { tooltip: "option is maybe", onValue: "MAYBE" }
           }
         }
       };
@@ -678,7 +666,6 @@
           }
           
           const form = pdfDoc.getForm();
-          const groupedFields = groupFieldsByName(form);
 
           // Set all text fields EXCEPT signature
           setTextFields(form, {
@@ -744,12 +731,14 @@
             reason_filing_15: document.getElementById("part-iv-15").checked
           });
 
-          const yesName = PDFName.of("Yes");
-          const offName = PDFName.of("Off");
-
           for (const [fieldName, config] of Object.entries(radioGroupsConfig)) {
-            const fields = groupedFields.get(fieldName) ?? [];
-            if (!fields.length) continue;
+            let radioGroup;
+            try {
+              radioGroup = form.getRadioGroup(fieldName);
+            } catch (error) {
+              console.warn(`Unable to access radio group ${fieldName}:`, error);
+              continue;
+            }
             const { htmlName, matchers } = config;
             const checkedInputs = Array.from(
               document.querySelectorAll(`input[name="${htmlName}"]:checked`)
@@ -757,35 +746,26 @@
             const selectedValue = checkedInputs.length
               ? checkedInputs[0].value.toLowerCase()
               : null;
-            const expectedToken =
+            const selectedConfig =
               selectedValue && matchers[selectedValue] ? matchers[selectedValue] : null;
-            let selectionApplied = false;
-
-            for (const field of fields) {
-              const tooltipRaw = field.acroField?.dict?.get?.(PDFName.of("TU"));
-              const tooltipText =
-                tooltipRaw?.decodeText?.() ?? tooltipRaw?.value ?? tooltipRaw ?? "";
-              const tooltipNormalized = String(tooltipText).toLowerCase();
-              const matches =
-                Boolean(expectedToken) &&
-                !selectionApplied &&
-                tooltipNormalized.includes(expectedToken);
-              const widgets = field.acroField?.getWidgets?.() ?? [];
-              const widget = widgets[0];
-
-              if (matches) {
-                selectionApplied = true;
-                field.acroField?.dict?.set(PDFName.of("V"), yesName);
-                field.acroField?.dict?.set(PDFName.of("DV"), yesName);
-                field.acroField?.dict?.set(PDFName.of("AS"), yesName);
-                widget?.setAppearanceState?.(yesName);
-              } else {
-                field.acroField?.dict?.set(PDFName.of("V"), offName);
-                field.acroField?.dict?.set(PDFName.of("DV"), offName);
-                field.acroField?.dict?.set(PDFName.of("AS"), offName);
-                widget?.setAppearanceState?.(offName);
+            const onValue = selectedConfig?.onValue;
+            if (onValue) {
+              try {
+                radioGroup.select(onValue);
+              } catch (error) {
+                console.warn(`Unable to select ${onValue} for ${fieldName}:`, error);
+                try {
+                  radioGroup.clear();
+                } catch (clearError) {
+                  console.warn(`Unable to clear radio group ${fieldName}:`, clearError);
+                }
               }
-              field.markAsDirty?.();
+            } else {
+              try {
+                radioGroup.clear();
+              } catch (error) {
+                console.warn(`Unable to clear radio group ${fieldName}:`, error);
+              }
             }
           }
 
