@@ -444,17 +444,13 @@ def build_form(page: pm.Page) -> None:
         content_width,
         32,
         [
-            ("A. PRINTED NAME OF REAL MAN/WOMAN", 0.25),
-            ("B. SIGNATURE", 0.25),
-            ("C. PRINTED NAME OF WHINER", 0.25),
-            ("D. SIGNATURE", 0.25),
+            ("A. PRINTED NAME OF WHINER", 0.5),
+            ("B. SIGNATURE", 0.5),
         ],
     )
     for (rect, _), name in zip(
         auth_rects,
         [
-            "auth_real_person",
-            "auth_real_signature",
             "auth_whiner_name",
             "auth_whiner_signature",
         ],
