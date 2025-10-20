@@ -582,7 +582,7 @@ def build_form(page: pm.Page) -> None:
     ):
         add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
-    y = draw_section_header(page, left, right, y, "PART III - INJURY (Mark all that apply)")
+    y = draw_section_header(page, left, right, y, "PART III - INJURY")
     y = draw_checkbox_line(
         page,
         left,
