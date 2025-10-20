@@ -444,7 +444,7 @@
       </article>
     </main>
     <script type="module">
-      import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
+      import { PDFDocument, PDFName } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
 
       const groupFieldsByName = (form) => {
         const grouped = new Map();
@@ -476,19 +476,42 @@
         }
       };
 
-      const radioOptionOrder = {
-        injury_question1: ["left", "right", "both"],
-        injury_question2: ["yes", "no", "maybe"],
-        injury_question3: ["yes", "no", "multiple"],
-        injury_question4: ["yes", "no", "maybe"]
+      const radioGroupsConfig = {
+        injury_question1: {
+          htmlName: "part_iii_1",
+          matchers: {
+            left: "option is left",
+            right: "option is right",
+            both: "option is both"
+          }
+        },
+        injury_question2: {
+          htmlName: "part_iii_2",
+          matchers: {
+            yes: "option is yes",
+            no: "option is no",
+            maybe: "option is maybe"
+          }
+        },
+        injury_question3: {
+          htmlName: "part_iii_3",
+          matchers: {
+            yes: "option is yes",
+            no: "option is no",
+            multiple: "option is multiple"
+          }
+        },
+        injury_question4: {
+          htmlName: "part_iii_4",
+          matchers: {
+            yes: "option is yes",
+            no: "option is no",
+            maybe: "option is maybe"
+          }
+        }
       };
 
       const button = document.getElementById("generate-btn");
-
-      const getRadioValue = (name) => {
-        const input = document.querySelector(`input[name="${name}"]:checked`);
-        return input ? input.value : null;
-      };
 
       button?.addEventListener("click", async () => {
         const originalLabel = button.textContent;
@@ -539,26 +562,49 @@
             reason_filing_15: document.getElementById("part-iv-15").checked
           });
 
-          const radioMappings = {
-            injury_question1: getRadioValue("part_iii_1"),
-            injury_question2: getRadioValue("part_iii_2"),
-            injury_question3: getRadioValue("part_iii_3"),
-            injury_question4: getRadioValue("part_iii_4")
-          };
+          const yesName = PDFName.of("Yes");
+          const offName = PDFName.of("Off");
 
-          for (const [fieldName, selectedValue] of Object.entries(radioMappings)) {
-            const options = groupedFields.get(fieldName) ?? [];
-            const orderedLabels = radioOptionOrder[fieldName] ?? [];
-            options.forEach((optionField, index) => {
-              const targetLabel = orderedLabels[index];
+          for (const [fieldName, config] of Object.entries(radioGroupsConfig)) {
+            const fields = groupedFields.get(fieldName) ?? [];
+            if (!fields.length) continue;
+            const { htmlName, matchers } = config;
+            const checkedInputs = Array.from(
+              document.querySelectorAll(`input[name="${htmlName}"]:checked`)
+            );
+            const selectedValue = checkedInputs.length
+              ? checkedInputs[0].value.toLowerCase()
+              : null;
+            const expectedToken =
+              selectedValue && matchers[selectedValue] ? matchers[selectedValue] : null;
+            let selectionApplied = false;
+
+            for (const field of fields) {
+              const tooltipRaw = field.acroField?.dict?.get?.(PDFName.of("TU"));
+              const tooltipText =
+                tooltipRaw?.decodeText?.() ?? tooltipRaw?.value ?? tooltipRaw ?? "";
+              const tooltipNormalized = String(tooltipText).toLowerCase();
               const matches =
-                Boolean(selectedValue) && targetLabel === selectedValue.toLowerCase();
+                Boolean(expectedToken) &&
+                !selectionApplied &&
+                tooltipNormalized.includes(expectedToken);
+              const widgets = field.acroField?.getWidgets?.() ?? [];
+              const widget = widgets[0];
+
               if (matches) {
-                optionField.check?.();
+                selectionApplied = true;
+                field.acroField?.dict?.set(PDFName.of("V"), yesName);
+                field.acroField?.dict?.set(PDFName.of("DV"), yesName);
+                field.acroField?.dict?.set(PDFName.of("AS"), yesName);
+                widget?.setAppearanceState?.(yesName);
               } else {
-                optionField.uncheck?.();
+                field.acroField?.dict?.set(PDFName.of("V"), offName);
+                field.acroField?.dict?.set(PDFName.of("DV"), offName);
+                field.acroField?.dict?.set(PDFName.of("AS"), offName);
+                widget?.setAppearanceState?.(offName);
               }
-            });
+              field.markAsDirty?.();
+            }
           }
 
           form.flatten();
