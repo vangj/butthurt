@@ -16,6 +16,12 @@
       integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
       crossorigin="anonymous"
     >
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+      integrity="sha384-4LISF5TTJX/fLmGSxO53rV4miRxdg84mZsxmO8Rx5jGtp/LbrixFETvWa5a6sESd"
+      crossorigin="anonymous"
+    >
     <style>
       body {
         background-color: #f3f4f6;
@@ -139,6 +145,20 @@
         gap: 0.5rem;
         margin-bottom: 0;
         padding: 0.25rem 0 0.25rem 0.75rem;
+      }
+
+      .btn-generate {
+        background-color: #fff;
+        border: 1.5px solid #000;
+        color: #000;
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+      }
+
+      .btn-generate:hover,
+      .btn-generate:focus-visible {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: #fff;
       }
 
       @media (max-width: 576px) {
@@ -450,8 +470,12 @@
             </div>
           </section>
           <div class="d-flex justify-content-end mt-4 gap-3">
-            <button type="button" id="generate-pdf-btn" class="btn btn-dark btn-lg text-uppercase fw-semibold">Generate PDF</button>
-            <button type="button" id="generate-jpg-btn" class="btn btn-outline-dark btn-lg text-uppercase fw-semibold">Generate JPG</button>
+            <button type="button" id="generate-pdf-btn" class="btn btn-generate btn-lg text-uppercase fw-semibold">
+              <i class="bi bi-filetype-pdf me-2" aria-hidden="true"></i>Generate PDF
+            </button>
+            <button type="button" id="generate-jpg-btn" class="btn btn-generate btn-lg text-uppercase fw-semibold">
+              <i class="bi bi-filetype-jpg me-2" aria-hidden="true"></i>Generate JPG
+            </button>
           </div>
         </form>
       </article>
