@@ -461,6 +461,126 @@
 
       const blankPdfUrl = new URL("blank_form.pdf", window.location.href);
       const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
+      const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
+      let signatureFontReadyPromise = null;
+
+      const waitForSignatureFont = async () => {
+        if (!signatureFontReadyPromise) {
+          signatureFontReadyPromise = (async () => {
+            if (document.fonts?.load) {
+              try {
+                await document.fonts.load(`32px ${signatureFontFamily}`, "Signature");
+                await document.fonts.ready;
+              } catch (error) {
+                console.warn("Unable to confirm signature font load:", error);
+              }
+            }
+          })();
+        }
+
+        try {
+          await signatureFontReadyPromise;
+        } catch {
+          // Ignore font loading failures; canvas rendering will fall back to default font.
+        }
+      };
+
+      const canvasToPngBytes = async (canvas) => {
+        if (typeof OffscreenCanvas !== "undefined" && canvas instanceof OffscreenCanvas) {
+          const blob = await canvas.convertToBlob({ type: "image/png" });
+          return new Uint8Array(await blob.arrayBuffer());
+        }
+
+        if (typeof canvas.toBlob === "function") {
+          const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((result) => {
+              if (result) {
+                resolve(result);
+              } else {
+                reject(new Error("Canvas toBlob returned null."));
+              }
+            }, "image/png");
+          });
+          return new Uint8Array(await blob.arrayBuffer());
+        }
+
+        if (typeof canvas.toDataURL === "function") {
+          const dataUrl = canvas.toDataURL("image/png");
+          const response = await fetch(dataUrl);
+          return new Uint8Array(await response.arrayBuffer());
+        }
+
+        throw new Error("Unsupported canvas type for signature rendering.");
+      };
+
+      const renderSignatureToImageBytes = async (text, rect) => {
+        if (!text || !rect) return null;
+        if (!rect.width || !rect.height) return null;
+        const trimmed = text.trim();
+        if (!trimmed) return null;
+
+        await waitForSignatureFont();
+
+        const deviceRatio =
+          typeof window !== "undefined" && window.devicePixelRatio
+            ? window.devicePixelRatio
+            : 1;
+        const widthPx = Math.max(1, Math.round(rect.width * deviceRatio));
+        const heightPx = Math.max(1, Math.round(rect.height * deviceRatio));
+
+        let canvas;
+        if (typeof OffscreenCanvas !== "undefined") {
+          canvas = new OffscreenCanvas(widthPx, heightPx);
+        } else {
+          canvas = document.createElement("canvas");
+          canvas.width = widthPx;
+          canvas.height = heightPx;
+        }
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          console.warn("Unable to acquire canvas context for signature rendering.");
+          return null;
+        }
+
+        context.clearRect(0, 0, widthPx, heightPx);
+        context.scale(deviceRatio, deviceRatio);
+        context.clearRect(0, 0, rect.width, rect.height);
+
+        const padding = Math.min(8, rect.width * 0.1);
+        let fontSize = Math.min(rect.height * 0.85, 48);
+
+        const applyFont = (size) => {
+          context.font = `${size}px ${signatureFontFamily}`;
+        };
+
+        applyFont(fontSize);
+        let metrics = context.measureText(trimmed);
+        const maxTextWidth = Math.max(rect.width - padding * 2, rect.width * 0.25);
+        if (metrics.width > maxTextWidth) {
+          const scaleFactor = maxTextWidth / metrics.width;
+          fontSize = Math.max(rect.height * 0.4, fontSize * scaleFactor);
+          applyFont(fontSize);
+          metrics = context.measureText(trimmed);
+        }
+
+        context.fillStyle = "#000";
+        context.textBaseline = "alphabetic";
+
+        const ascent = metrics.actualBoundingBoxAscent ?? fontSize * 0.8;
+        const descent = metrics.actualBoundingBoxDescent ?? fontSize * 0.2;
+        const yPosition = rect.height / 2 + (ascent - descent) / 2;
+        const xPosition = padding;
+
+        context.fillText(trimmed, xPosition, yPosition);
+
+        try {
+          return await canvasToPngBytes(canvas);
+        } catch (error) {
+          console.error("Unable to convert signature canvas to PNG:", error);
+          return null;
+        }
+      };
 
       const setTextFields = (form, mappings) => {
         for (const [fieldName, value] of Object.entries(mappings)) {
@@ -569,39 +689,6 @@
       const signatureInput = document.getElementById("part-vi-b");
       const offenderInput = document.getElementById("part-ii-d");
       const ssnInput = document.getElementById("part-i-b");
-
-      const signatureFontUrl = new URL("fonts/GreatVibes-Regular.ttf", window.location.href);
-      let signatureFontBytesPromise = null;
-      let fontkitModulePromise = null;
-
-      const loadSignatureFontBytes = async () => {
-        if (!signatureFontBytesPromise) {
-          signatureFontBytesPromise = fetch(signatureFontUrl)
-            .then((response) => {
-              if (!response.ok) {
-                throw new Error("Unable to load signature font.");
-              }
-              return response.arrayBuffer();
-            })
-            .catch((error) => {
-              signatureFontBytesPromise = null;
-              throw error;
-            });
-        }
-        return signatureFontBytesPromise;
-      };
-
-      const loadFontkitModule = async () => {
-        if (!fontkitModulePromise) {
-          fontkitModulePromise = import("https://cdn.skypack.dev/@pdf-lib/fontkit@1.1.1")
-            .then((module) => module.default || module)
-            .catch((error) => {
-              fontkitModulePromise = null;
-              throw error;
-            });
-        }
-        return fontkitModulePromise;
-      };
 
       const syncFieldValue = (source, target) => {
         if (!source || !target) return;
@@ -753,18 +840,6 @@
         radioSelections: collectRadioSelections(radioGroupsConfig)
       });
 
-      const embedSignatureFont = async (pdfDoc) => {
-        try {
-          const fontkit = await loadFontkitModule();
-          pdfDoc.registerFontkit(fontkit);
-          const signatureFontBytes = await loadSignatureFontBytes();
-          return await pdfDoc.embedFont(signatureFontBytes);
-        } catch (error) {
-          console.error("Could not load custom signature font:", error);
-          return null;
-        }
-      };
-
       const createFilledPdfBytes = async () => {
         const response = await fetch(blankPdfUrl);
         if (!response.ok) {
@@ -774,7 +849,6 @@
         const pdfBytes = await response.arrayBuffer();
         const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
 
-        const signatureFont = await embedSignatureFont(pdfDoc);
         const form = pdfDoc.getForm();
         const { textFields, signature, checkboxes, radioSelections } = collectFormValues();
 
@@ -796,7 +870,13 @@
               const widgets = signatureField.acroField.getWidgets();
               if (widgets.length > 0) {
                 const widget = widgets[0];
-                signatureRect = widget.getRectangle();
+                const rect = widget.getRectangle();
+                signatureRect = {
+                  x: Number(rect.x) || 0,
+                  y: Number(rect.y) || 0,
+                  width: Number(rect.width) || 0,
+                  height: Number(rect.height) || 0
+                };
                 signaturePageIndex = 0;
               }
             } catch (error) {
@@ -816,31 +896,58 @@
 
         form.flatten();
 
-        if (signature && signatureFont && signatureRect) {
+        let signatureImageBytes = null;
+        if (signature && signatureRect && signatureRect.width > 0 && signatureRect.height > 0) {
+          try {
+            signatureImageBytes = await renderSignatureToImageBytes(signature, signatureRect);
+          } catch (error) {
+            console.error("Could not render signature image:", error);
+          }
+        }
+
+        if (signatureImageBytes && signatureRect) {
           try {
             const pages = pdfDoc.getPages();
             const page = pages[signaturePageIndex] ?? pages[0];
             if (!page) {
               throw new Error("Unable to access the signature page.");
             }
-            const fontSize = 16;
-            const xPosition = signatureRect.x + 8;
-            const yPosition = signatureRect.y + signatureRect.height / 2 - fontSize * 0.35;
+            const signatureImage = await pdfDoc.embedPng(signatureImageBytes);
+            page.drawImage(signatureImage, {
+              x: signatureRect.x,
+              y: signatureRect.y,
+              width: signatureRect.width,
+              height: signatureRect.height
+            });
+          } catch (error) {
+            console.error("Could not draw signature image:", error);
+          }
+        } else if (signature && signatureRect) {
+          try {
+            const pages = pdfDoc.getPages();
+            const page = pages[signaturePageIndex] ?? pages[0];
+            if (!page) {
+              throw new Error("Unable to access the signature page.");
+            }
+            const fallbackFont = await pdfDoc.embedStandardFont("Helvetica");
+            const fontSize = Math.min(16, Math.max(10, signatureRect.height * 0.75));
+            const xPosition = signatureRect.x + 4;
+            const yPosition = signatureRect.y + (signatureRect.height - fontSize) / 2;
 
             page.drawText(signature, {
               x: xPosition,
               y: yPosition,
               size: fontSize,
-              font: signatureFont,
+              font: fallbackFont,
               color: { type: "RGB", red: 0, green: 0, blue: 0 }
             });
           } catch (error) {
-            console.error("Could not draw signature with custom font:", error);
+            console.error("Could not draw fallback signature text:", error);
           }
         } else {
           console.log("Skipping signature draw:", {
             hasValue: !!signature,
-            hasFont: !!signatureFont,
+            hasImage: !!signatureImageBytes,
             hasRect: !!signatureRect
           });
         }
