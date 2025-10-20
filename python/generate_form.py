@@ -16,6 +16,10 @@ PART_ROMANS = {
     5: "V",
     6: "VI",
 }
+PART_PREFIX_PART: dict[str, int] = {
+    "injury": 3,
+    "reason_filing": 4,
+}
 
 TEXT_TOOLTIPS: dict[str, str] = {
     "admin_whiner_name": "Part I, Administrative Data, Question A, Whiner's Name (Last, First, MI)",
@@ -28,7 +32,7 @@ TEXT_TOOLTIPS: dict[str, str] = {
     "incident_location": "Part II, Incident Report, Question C, Location of Hurtful Incident",
     "incident_offender_name": "Part II, Incident Report, Question D, Name of Real Man/Woman Who Hurt Your Sensitive Feelings",
     "incident_offender_org": "Part II, Incident Report, Question E, Organization",
-    "part5_narrative": "Part V, Narrative",
+    "narrative_text": "Part V, Narrative",
     "auth_whiner_name": "Part VI, Authentication, Question A, Printed Name of Whiner",
     "auth_whiner_signature": "Part VI, Authentication, Question B, Signature",
 }
@@ -48,6 +52,9 @@ WIDGET_TYPE_MAP = {
 
 
 def part_label_from_field(field_name: str) -> str:
+    for prefix, part_number in PART_PREFIX_PART.items():
+        if field_name.startswith(prefix):
+            return f"Part {PART_ROMANS.get(part_number, str(part_number))}"
     match = re.match(r"part(\d+)", field_name)
     if match:
         number = int(match.group(1))
@@ -290,9 +297,7 @@ def draw_checkbox_line(
     x = left + 8
     box_size = 10
     radius = box_size / 2
-    part_match = re.match(r"part(\d+)", field_name)
-    part_number = int(part_match.group(1)) if part_match else None
-    part_label = f"Part {PART_ROMANS.get(part_number, str(part_number))}" if part_number else "Part"
+    part_label = part_label_from_field(field_name)
     question_match = re.search(r"question(\d+)", field_name)
     question_number = question_match.group(1) if question_match else ""
     for option in options:
@@ -353,6 +358,7 @@ def draw_checkbox_grid(
             widget.border_color = BLACK
             widget.fill_color = (1, 1, 1)
             page.add_widget(widget)
+            part_label = part_label_from_field(field_prefix)
             tooltip = f"{part_label}, Option is {item}"
             _TOOLTIP_QUEUE[widget.field_name].append(tooltip)
             text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height - 4)
@@ -573,7 +579,7 @@ def build_form(page: pm.Page) -> None:
         y + 4,
         "1. WHICH EAR WERE THE WORDS OF HURTFULNESS SPOKEN INTO?",
         ["LEFT", "RIGHT", "BOTH"],
-        "part3_question1",
+        "injury_question1",
     )
     y = draw_checkbox_line(
         page,
@@ -582,7 +588,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "2. IS THERE PERMANENT FEELING DAMAGE?",
         ["YES", "NO", "MAYBE"],
-        "part3_question2",
+        "injury_question2",
     )
     y = draw_checkbox_line(
         page,
@@ -591,7 +597,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "3. DID YOU REQUIRE A \"TISSUE\" FOR TEARS?",
         ["YES", "NO", "MULTIPLE"],
-        "part3_question3",
+        "injury_question3",
     )
     y = draw_checkbox_line(
         page,
@@ -600,7 +606,7 @@ def build_form(page: pm.Page) -> None:
         y,
         "4. HAS THIS RESULTED IN A TRAUMATIC BRAIN INJURY?",
         ["YES", "NO", "MAYBE"],
-        "part3_question4",
+        "injury_question4",
     )
 
     y = draw_section_header(
@@ -629,7 +635,7 @@ def build_form(page: pm.Page) -> None:
             "All of the above and more",
         ],
         columns=3,
-        field_prefix="part4_reason",
+        field_prefix="reason_filing",
     )
 
     y = draw_section_header(
@@ -642,7 +648,7 @@ def build_form(page: pm.Page) -> None:
     narrative_height = 64
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
     page.draw_rect(narrative_rect, color=BLACK, width=1)
-    add_textarea_widget(page, narrative_rect, "part5_narrative", tooltip=TEXT_TOOLTIPS.get("part5_narrative"))
+    add_textarea_widget(page, narrative_rect, "narrative_text", tooltip=TEXT_TOOLTIPS.get("narrative_text"))
     y = narrative_rect.y1
 
     y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
