@@ -441,6 +441,7 @@ def add_text_widget(
     widget.update()
     if tooltip:
         _TOOLTIP_QUEUE[field_name].append(tooltip)
+    return widget
 
 
 def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, tooltip: str | None = None) -> None:
@@ -462,13 +463,20 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
 
 
 def build_form(page: pm.Page) -> None:
+    doc = page.parent
     signature_font_name = DEFAULT_TEXT_FONT
+    signature_font_xref: int | None = None
+    signature_widget_xref: int | None = None
+    signature_font_size = 16
     if SIGNATURE_FONT_PATH.exists():
         try:
-            page.insert_font(fontname=SIGNATURE_FONT_NAME, fontfile=str(SIGNATURE_FONT_PATH))
+            signature_font_xref = page.insert_font(
+                fontname=SIGNATURE_FONT_NAME, fontfile=str(SIGNATURE_FONT_PATH)
+            )
             signature_font_name = SIGNATURE_FONT_NAME
         except Exception:
             signature_font_name = DEFAULT_TEXT_FONT
+            signature_font_xref = None
 
     width = page.rect.width
     height = page.rect.height
@@ -702,10 +710,37 @@ def build_form(page: pm.Page) -> None:
     ):
         kwargs = {"tooltip": TEXT_TOOLTIPS.get(name)}
         if name == "auth_whiner_signature":
-            kwargs.update({"font_name": signature_font_name, "font_size": 16})
+            kwargs.update({"font_name": signature_font_name, "font_size": signature_font_size})
+            add_text_widget(page, rect, name, **kwargs)
+            if (
+                signature_font_name == SIGNATURE_FONT_NAME
+                and isinstance(signature_font_xref, int)
+            ):
+                page_widget = next(
+                    (w for w in page.widgets() if w.field_name == name),
+                    None,
+                )
+                if page_widget:
+                    signature_widget_xref = page_widget.xref
+            continue
         add_text_widget(page, rect, name, **kwargs)
 
     apply_tooltips(page)
+    if (
+        signature_widget_xref is not None
+        and signature_font_name == SIGNATURE_FONT_NAME
+        and isinstance(signature_font_xref, int)
+    ):
+        doc.xref_set_key(
+            signature_widget_xref,
+            "DA",
+            f"(0 0 0 rg /{SIGNATURE_FONT_NAME} {signature_font_size} Tf)",
+        )
+        doc.xref_set_key(
+            signature_widget_xref,
+            "DR",
+            f"<< /Font << /{SIGNATURE_FONT_NAME} {signature_font_xref} 0 R >> >>",
+        )
 
 
 def remove_text_widget_borders(doc: pm.Document) -> None:
