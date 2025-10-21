@@ -10,3 +10,4 @@ generate:
 
 copy:
 	cp -f blank_form_*.pdf ../www/pdf/
+	cp -f blank_form_en.pdf ../www/pdf/blank_form.pdf
