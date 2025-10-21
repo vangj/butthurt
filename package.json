@@ -1,0 +1,29 @@
+{
+  "name": "butthurt",
+  "version": "1.0.0",
+  "description": "Taken and adapted from [here](https://www.itstactical.com/wp-content/uploads/2012/10/ITS_TACTICAL_BUTT_HURT_REPORT1.pdf). Use it at your own risk.",
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf www-optimized",
+    "build": "node build.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vangj/butthurt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vangj/butthurt/issues"
+  },
+  "homepage": "https://github.com/vangj/butthurt#readme",
+  "devDependencies": {
+    "cssnano": "^7.1.1",
+    "esbuild": "^0.25.11",
+    "fast-glob": "^3.3.3",
+    "fs-extra": "^11.3.2",
+    "html-minifier-terser": "^7.2.0",
+    "postcss": "^8.5.6"
+  }
+}
