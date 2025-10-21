@@ -18,6 +18,10 @@ FONT_DIR = Path(__file__).resolve().parent / "fonts"
 SIGNATURE_FONT_PATH = FONT_DIR / "GreatVibes-Regular.ttf"
 SIGNATURE_FONT_NAME = "GreatVibes"
 
+SECTION_HEADER_HEIGHT = 28
+MIN_SIGNATURE_REGION_HEIGHT = 48
+MIN_TEXT_WIDGET_BOTTOM_MARGIN = 10
+
 PART_ROMANS = {
     1: "I",
     2: "II",
@@ -678,7 +682,7 @@ def measure_text_width(text: str, font_name: str, font_size: float) -> float:
 
 
 def draw_section_header(page: pm.Page, left: float, right: float, y: float, text: str) -> float:
-    rect = pm.Rect(left, y, right, y + 28)
+    rect = pm.Rect(left, y, right, y + SECTION_HEADER_HEIGHT)
     page.draw_rect(rect, color=BLACK)
     insert_center_text(
         page,
@@ -917,13 +921,29 @@ def draw_signature_row(
     width: float,
     height: float,
     labels: list[tuple[str, float]],
+    draw_bottom: bool = True,
 ) -> tuple[float, list[tuple[pm.Rect, str]]]:
     x = left
     rects: list[tuple[pm.Rect, str]] = []
-    for label, ratio in labels:
+    
+    # First draw the top border across the entire width
+    if not draw_bottom:
+        page.draw_line((left, y), (left + width, y), color=BLACK, width=1)
+    
+    for i, (label, ratio) in enumerate(labels):
         block_width = width * ratio
         rect = pm.Rect(x, y, x + block_width, y + height)
-        page.draw_rect(rect, color=BLACK, width=1)
+        
+        if draw_bottom:
+            # Draw complete rectangle
+            page.draw_rect(rect, color=BLACK, width=1)
+        else:
+            # Only draw vertical divider between boxes (not on edges)
+            if i > 0:  # Draw left divider for all boxes except the first
+                # Divider should stop well before the bottom to not overlap outer border
+                # The outer border is 1.5px thick, so stop at least 2px before
+                page.draw_line((rect.x0, rect.y0), (rect.x0, rect.y1 - 2), color=BLACK, width=1)
+        
         insert_text(
             page,
             pm.Rect(rect.x0 + 4, rect.y0 + 4, rect.x1 - 4, rect.y1 - 6),
@@ -948,13 +968,23 @@ def add_text_widget(
     font_xref: int | None = None,
 ) -> pm.Widget:
     if top_offset is None:
-        top_offset = min(rect.height * 0.45, 20)
+        # Increase offset for taller boxes to add more space from label
+        if rect.height > 45:
+            top_offset = 24  # More space for tall signature boxes
+        else:
+            top_offset = min(rect.height * 0.45, 20)
     
     # For tall boxes (>45px), use a fixed widget height instead of filling to bottom
     # This prevents text widgets from becoming too thin in signature boxes
     if rect.height > 45:
-        widget_height = 20  # Fixed comfortable height for text input
-        field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y0 + top_offset + widget_height)
+        widget_height = 18  # Fixed comfortable height for text input, with margin from bottom
+        min_top = rect.y0 + 12
+        target_bottom = rect.y1 - MIN_TEXT_WIDGET_BOTTOM_MARGIN
+        proposed_top = rect.y0 + top_offset
+        field_top = min(proposed_top, target_bottom - widget_height)
+        field_top = max(field_top, min_top)
+        field_bottom = field_top + widget_height
+        field_rect = pm.Rect(rect.x0 + 8, field_top, rect.x1 - 8, field_bottom)
     else:
         field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y1 - 8)
     
@@ -1203,17 +1233,23 @@ def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, 
         )
 
         y = draw_section_header(page, left, right, y, text("part_v_header"))
-        narrative_height = 64
-        narrative_rect = pm.Rect(left, y, right, y + narrative_height)
-        page.draw_rect(narrative_rect, color=BLACK, width=1)
-        add_textarea_widget(page, narrative_rect, "narrative_text", tooltip=TEXT_TOOLTIPS.get("narrative_text"))
-        y = narrative_rect.y1
+        footer_space = SECTION_HEADER_HEIGHT + MIN_SIGNATURE_REGION_HEIGHT
+        available_for_narrative = max(0.0, bottom - y - footer_space)
+        narrative_height = min(64.0, available_for_narrative)
+        if narrative_height > 0:
+            narrative_rect = pm.Rect(left, y, right, y + narrative_height)
+            page.draw_rect(narrative_rect, color=BLACK, width=1)
+            add_textarea_widget(
+                page,
+                narrative_rect,
+                "narrative_text",
+                tooltip=TEXT_TOOLTIPS.get("narrative_text"),
+            )
+            y = narrative_rect.y1
 
         y = draw_section_header(page, left, right, y, text("part_vi_header"))
-        # Calculate remaining space to bottom margin
-        # Use at least 50 pixels for signature boxes, but fill to bottom if more space
         remaining_space = bottom - y
-        signature_height = max(50, remaining_space)
+        signature_height = max(remaining_space, 0.0)
         y, auth_rects = draw_signature_row(
             page,
             left,
@@ -1224,6 +1260,7 @@ def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, 
                 (text("auth_whiner_name_label"), 0.5),
                 (text("auth_signature_label"), 0.5),
             ],
+            draw_bottom=False,  # Don't draw bottom border - use outer border instead
         )
         for (rect, _), name in zip(
             auth_rects,
