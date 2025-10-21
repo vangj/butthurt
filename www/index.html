@@ -1021,41 +1021,67 @@
     const getInputValue = (id) => document.getElementById(id)?.value ?? "";
     const isChecked = (id) => document.getElementById(id)?.checked ?? false;
 
-    const collectFormValues = () => ({
-      textFields: {
-        admin_whiner_name: getInputValue("part-i-a"),
-        admin_social_security: getInputValue("part-i-b"),
-        admin_report_date: getInputValue("part-i-c"),
-        admin_organization: getInputValue("part-i-d"),
-        admin_preparer_name: getInputValue("part-i-e"),
-        incident_date: getInputValue("part-ii-a"),
-        incident_time: getInputValue("part-ii-b"),
-        incident_location: getInputValue("part-ii-c"),
-        incident_offender_name: getInputValue("part-ii-d"),
-        incident_offender_org: getInputValue("part-ii-e"),
-        narrative_text: getInputValue("part-v"),
-        auth_whiner_name: getInputValue("part-vi-a")
-      },
-      signature: getInputValue("part-vi-b"),
-      checkboxes: {
-        reason_filing_1: isChecked("part-iv-1"),
-        reason_filing_4: isChecked("part-iv-2"),
-        reason_filing_7: isChecked("part-iv-3"),
-        reason_filing_10: isChecked("part-iv-4"),
-        reason_filing_13: isChecked("part-iv-5"),
-        reason_filing_2: isChecked("part-iv-6"),
-        reason_filing_5: isChecked("part-iv-7"),
-        reason_filing_8: isChecked("part-iv-8"),
-        reason_filing_11: isChecked("part-iv-9"),
-        reason_filing_14: isChecked("part-iv-10"),
-        reason_filing_3: isChecked("part-iv-11"),
-        reason_filing_6: isChecked("part-iv-12"),
-        reason_filing_9: isChecked("part-iv-13"),
-        reason_filing_12: isChecked("part-iv-14"),
-        reason_filing_15: isChecked("part-iv-15")
-      },
-      radioSelections: collectRadioSelections(radioGroupsConfig)
-    });
+    function formatTimeForPdf(rawValue) {
+      if (!rawValue) return "";
+      const [hourPart, minutePart] = rawValue.split(":");
+      const hour = Number.parseInt(hourPart, 10);
+      const minute = Number.parseInt(minutePart, 10);
+
+      if (
+        Number.isNaN(hour) ||
+        Number.isNaN(minute) ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59
+      ) {
+        return rawValue;
+      }
+
+      const period = hour >= 12 ? "PM" : "AM";
+      const hour12 = ((hour + 11) % 12) + 1;
+      const formattedHour = String(hour12).padStart(2, "0");
+      const formattedMinute = String(minute).padStart(2, "0");
+      return `${formattedHour}:${formattedMinute} ${period}`;
+    }
+
+    function collectFormValues() {
+      return {
+        textFields: {
+          admin_whiner_name: getInputValue("part-i-a"),
+          admin_social_security: getInputValue("part-i-b"),
+          admin_report_date: getInputValue("part-i-c"),
+          admin_organization: getInputValue("part-i-d"),
+          admin_preparer_name: getInputValue("part-i-e"),
+          incident_date: getInputValue("part-ii-a"),
+          incident_time: formatTimeForPdf(getInputValue("part-ii-b")),
+          incident_location: getInputValue("part-ii-c"),
+          incident_offender_name: getInputValue("part-ii-d"),
+          incident_offender_org: getInputValue("part-ii-e"),
+          narrative_text: getInputValue("part-v"),
+          auth_whiner_name: getInputValue("part-vi-a")
+        },
+        signature: getInputValue("part-vi-b"),
+        checkboxes: {
+          reason_filing_1: isChecked("part-iv-1"),
+          reason_filing_4: isChecked("part-iv-2"),
+          reason_filing_7: isChecked("part-iv-3"),
+          reason_filing_10: isChecked("part-iv-4"),
+          reason_filing_13: isChecked("part-iv-5"),
+          reason_filing_2: isChecked("part-iv-6"),
+          reason_filing_5: isChecked("part-iv-7"),
+          reason_filing_8: isChecked("part-iv-8"),
+          reason_filing_11: isChecked("part-iv-9"),
+          reason_filing_14: isChecked("part-iv-10"),
+          reason_filing_3: isChecked("part-iv-11"),
+          reason_filing_6: isChecked("part-iv-12"),
+          reason_filing_9: isChecked("part-iv-13"),
+          reason_filing_12: isChecked("part-iv-14"),
+          reason_filing_15: isChecked("part-iv-15")
+        },
+        radioSelections: collectRadioSelections(radioGroupsConfig)
+      };
+    }
 
     async function createFilledPdfBytes() {
       const response = await fetch(blankPdfUrl);

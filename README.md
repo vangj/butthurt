@@ -4,6 +4,8 @@ Taken and adapted from [here](https://www.itstactical.com/wp-content/uploads/201
 
 ## Querystring support
 
+Simply append something like the following and the form should pre-populate and stream back either a JPG or PDF.
+
 ```bash
 ?p1a=Donald%20Trump&p1b=555116969&p1c=2025-10-01&p1d=White%20House&p1e=President&p2a=2025-10-01&p2b=19:00&p2c=No%20Kings%20Rally&p2d=Americans&p2e=1729&p31=both&p32=yes&p33=multiple&p34=yes&p41=1&p42=1&p415=1&p5=NKR%20hates%20Murica&export=jpg
 ```
