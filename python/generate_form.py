@@ -1,9 +1,10 @@
+import argparse
 import csv
 import json
+import os
 import re
 from collections import defaultdict, deque
 from pathlib import Path
-
 import pymupdf as pm
 
 BLACK = (0, 0, 0)
@@ -25,6 +26,62 @@ PART_ROMANS = {
 PART_PREFIX_PART: dict[str, int] = {
     "injury": 3,
     "reason_filing": 4,
+}
+
+DEFAULT_LANGUAGE = "en"
+DEFAULT_I18N_PATH = Path(__file__).resolve().parent / "i18n.csv"
+
+I18N_KEYS: dict[str, str] = {
+    "title": "1",
+    "privacy_statement": "2",
+    "principal_purpose_label": "3",
+    "principal_purpose_text": "4",
+    "routine_uses_label": "5",
+    "routine_uses_text": "6",
+    "part_i_header": "7",
+    "admin_whiner_name_label": "8",
+    "admin_social_security_label": "9",
+    "admin_report_date_label": "10",
+    "admin_organization_label": "11",
+    "admin_preparer_label": "12",
+    "part_ii_header": "13",
+    "incident_date_label": "14",
+    "incident_time_label": "15",
+    "incident_location_label": "16",
+    "incident_offender_name_label": "17",
+    "incident_offender_org_label": "18",
+    "part_iii_header": "19",
+    "injury_question1": "20",
+    "left": "21",
+    "right": "22",
+    "both": "23",
+    "injury_question2": "24",
+    "yes": "25",
+    "no": "26",
+    "maybe": "27",
+    "injury_question3": "28",
+    "multiple": "29",
+    "injury_question4": "30",
+    "part_iv_header": "31",
+    "reason_thin_skinned": "32",
+    "reason_fix_problems": "33",
+    "reason_two_beers": "34",
+    "reason_wimp": "35",
+    "reason_easily_hurt": "36",
+    "reason_hands_pockets": "37",
+    "reason_hormones": "38",
+    "reason_not_signed_up": "39",
+    "reason_not_offered_post_brief": "40",
+    "reason_crybaby": "41",
+    "reason_not_hero": "42",
+    "reason_requested_post_brief": "43",
+    "reason_want_mommy": "44",
+    "reason_weather": "45",
+    "reason_all_above": "46",
+    "part_v_header": "47",
+    "part_vi_header": "48",
+    "auth_whiner_name_label": "49",
+    "auth_signature_label": "50",
 }
 
 TEXT_TOOLTIPS: dict[str, str] = {
@@ -69,6 +126,70 @@ WIDGET_TYPE_MAP = {
     pm.PDF_WIDGET_TYPE_UNKNOWN: "unknown",
 }
 
+class TranslationCatalog:
+    """Load translation strings from a CSV and provide language-specific access."""
+
+    def __init__(self, csv_path: Path) -> None:
+        if not csv_path.exists():
+            raise FileNotFoundError(f"i18n file not found: {csv_path}")
+        self._csv_path = csv_path
+        self._translations: dict[str, dict[str, str]] = defaultdict(dict)
+        with csv_path.open("r", newline="", encoding="utf-8") as csv_file:
+            reader = csv.DictReader(csv_file)
+            if not reader.fieldnames:
+                raise ValueError(f"i18n file {csv_path} is missing headers.")
+            normalized_fields = [field.strip().lower() for field in reader.fieldnames]
+            if "id" not in normalized_fields:
+                raise ValueError(f"i18n file {csv_path} must include an 'id' column.")
+            id_index = normalized_fields.index("id")
+            language_columns = [
+                (field, normalized_fields[idx])
+                for idx, field in enumerate(reader.fieldnames)
+                if idx != id_index
+            ]
+            for row in reader:
+                row_id = (row.get(reader.fieldnames[id_index]) or "").strip()
+                if not row_id:
+                    continue
+                for original_name, normalized_name in language_columns:
+                    value = row.get(original_name, "")
+                    self._translations.setdefault(normalized_name, {})[row_id] = value.strip()
+        self._available_languages = {lang for lang in self._translations if lang}
+
+    def get_translator(self, language: str) -> "Translator":
+        normalized = language.strip().lower()
+        if normalized not in self._available_languages:
+            raise ValueError(
+                f"Language '{language}' not found in {self._csv_path}. Available languages: "
+                f"{', '.join(sorted(self._available_languages)) or 'none'}"
+            )
+        fallback = self._translations.get(DEFAULT_LANGUAGE, {})
+        selected = self._translations.get(normalized, {})
+        return Translator(language=normalized, translations=selected, fallback=fallback)
+
+
+class Translator:
+    """Provide simple access to translation strings with fallback to English."""
+
+    def __init__(
+        self,
+        *,
+        language: str,
+        translations: dict[str, str],
+        fallback: dict[str, str],
+    ) -> None:
+        self.language = language
+        self._translations = translations
+        self._fallback = fallback
+
+    def text(self, key: str) -> str:
+        translation_id = I18N_KEYS.get(key)
+        if translation_id is None:
+            raise KeyError(f"Translation key '{key}' is not defined.")
+        value = self._translations.get(translation_id)
+        if value:
+            return value
+        return self._fallback.get(translation_id, "")
 
 def part_label_from_field(field_name: str) -> str:
     for prefix, part_number in PART_PREFIX_PART.items():
@@ -754,11 +875,12 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
         _TOOLTIP_QUEUE[field_name].append(tooltip)
 
 
-def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
+def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, float] | None:
     doc = page.parent
     signature_font_name = DEFAULT_TEXT_FONT
     signature_font_xref: int | None = None
     signature_font_size = 16
+    text = translator.text
     
     # Insert the custom font at the document level, not page level
     if SIGNATURE_FONT_PATH.exists():
@@ -792,7 +914,7 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
     insert_center_text(
         page,
         header_rect,
-        "BUTT HURT REPORT",
+        text("title"),
         font="Helvetica-Bold",
         size=30,
         color=BLACK,
@@ -806,7 +928,7 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
     insert_center_text(
         page,
         info_rect,
-        "DATA REQUIRED BY THE PRIVACY ACT OF 1974",
+        text("privacy_statement"),
         font="Helvetica-Bold",
         size=11,
     )
@@ -818,13 +940,13 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         right,
         y,
         [
-            ("PRINCIPAL PURPOSE:", "To assist whiners in documenting hurt feelings."),
-            ("ROUTINE USES:", "Leaders & whiners should use this form as necessary."),
+            (text("principal_purpose_label"), text("principal_purpose_text")),
+            (text("routine_uses_label"), text("routine_uses_text")),
         ],
         row_gap=10,
     )
 
-    y = draw_section_header(page, left, right, y, "PART I - ADMINISTRATIVE DATA")
+    y = draw_section_header(page, left, right, y, text("part_i_header"))
     y, admin_row_one = draw_field_row(
         page,
         left,
@@ -832,9 +954,9 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         content_width,
         40,
         [
-            ("A. WHINER'S NAME (Last, First, MI)", 0.45),
-            ("B. SOCIAL SECURITY NUMBER", 0.27),
-            ("C. DATE OF REPORT", 0.28),
+            (text("admin_whiner_name_label"), 0.45),
+            (text("admin_social_security_label"), 0.27),
+            (text("admin_report_date_label"), 0.28),
         ],
     )
     for (rect, _), name in zip(
@@ -850,8 +972,8 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         content_width,
         40,
         [
-            ("D. ORGANIZATION", 0.5),
-            ("E. NAME & TITLE OF PERSON FILLING OUT THIS FORM", 0.5),
+            (text("admin_organization_label"), 0.5),
+            (text("admin_preparer_label"), 0.5),
         ],
     )
     for (rect, _), name in zip(
@@ -860,7 +982,7 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
     ):
         add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
-    y = draw_section_header(page, left, right, y, "PART II - INCIDENT REPORT")
+    y = draw_section_header(page, left, right, y, text("part_ii_header"))
     y, incident_row_one = draw_field_row(
         page,
         left,
@@ -868,9 +990,9 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         content_width,
         40,
         [
-            ("A. DATE FEELINGS WERE HURT", 0.33),
-            ("B. TIME OF HURTFULNESS", 0.33),
-            ("C. LOCATION OF HURTFUL INCIDENT", 0.34),
+            (text("incident_date_label"), 0.33),
+            (text("incident_time_label"), 0.33),
+            (text("incident_location_label"), 0.34),
         ],
     )
     for (rect, _), name in zip(
@@ -890,8 +1012,8 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         content_width,
         40,
         [
-            ("D. NAME OF REAL MAN/WOMAN WHO HURT YOUR SENSITIVE FEELINGS", 0.5),
-            ("E. ORGANIZATION", 0.5),
+            (text("incident_offender_name_label"), 0.5),
+            (text("incident_offender_org_label"), 0.5),
         ],
     )
     for (rect, _), name in zip(
@@ -903,14 +1025,14 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
     ):
         add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
-    y = draw_section_header(page, left, right, y, "PART III - INJURY")
+    y = draw_section_header(page, left, right, y, text("part_iii_header"))
     y = draw_checkbox_line(
         page,
         left,
         right,
         y + 4,
-        "1. WHICH EAR WERE THE WORDS OF HURTFULNESS SPOKEN INTO?",
-        ["LEFT", "RIGHT", "BOTH"],
+        text("injury_question1"),
+        [text("left"), text("right"), text("both")],
         "injury_question1",
     )
     y = draw_checkbox_line(
@@ -918,8 +1040,8 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         left,
         right,
         y,
-        "2. IS THERE PERMANENT FEELING DAMAGE?",
-        ["YES", "NO", "MAYBE"],
+        text("injury_question2"),
+        [text("yes"), text("no"), text("maybe")],
         "injury_question2",
     )
     y = draw_checkbox_line(
@@ -927,8 +1049,8 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         left,
         right,
         y,
-        "3. DID YOU REQUIRE A \"TISSUE\" FOR TEARS?",
-        ["YES", "NO", "MULTIPLE"],
+        text("injury_question3"),
+        [text("yes"), text("no"), text("multiple")],
         "injury_question3",
     )
     y = draw_checkbox_line(
@@ -936,46 +1058,40 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         left,
         right,
         y,
-        "4. HAS THIS RESULTED IN A TRAUMATIC BRAIN INJURY?",
-        ["YES", "NO", "MAYBE"],
+        text("injury_question4"),
+        [text("yes"), text("no"), text("maybe")],
         "injury_question4",
     )
 
-    y = draw_section_header(
-        page, left, right, y, "PART IV - REASON FOR FILING THIS REPORT (Mark all that apply)"
-    )
+    y = draw_section_header(page, left, right, y, text("part_iv_header"))
     y = draw_checkbox_grid(
         page,
         left,
         right,
         y + 6,
-        [
-            "I am thin skinned",
-            "Someone needs to fix my problems",
-            "Two beers is not enough",
-            "I am a wimp",
-            "My feelings are easily hurt",
-            "My hands should be in pockets",
-            "I have woman/man-like hormones",
-            "I didn't sign up for this",
-            "I was not offered a post brief",
-            "I am a crybaby",
-            "I was told that I am not a hero",
-            "Someone requested a post brief",
-            "I want my mommy",
-            "The weather is too cold/hot",
-            "All of the above and more",
-        ],
+        [text(key) for key in [
+            "reason_thin_skinned",
+            "reason_fix_problems",
+            "reason_two_beers",
+            "reason_wimp",
+            "reason_easily_hurt",
+            "reason_hands_pockets",
+            "reason_hormones",
+            "reason_not_signed_up",
+            "reason_not_offered_post_brief",
+            "reason_crybaby",
+            "reason_not_hero",
+            "reason_requested_post_brief",
+            "reason_want_mommy",
+            "reason_weather",
+            "reason_all_above",
+        ]],
         columns=3,
         field_prefix="reason_filing",
     )
 
     y = draw_section_header(
-        page,
-        left,
-        right,
-        y,
-        "PART V - NARRATIVE (Tell us in your own sissy words how your feelings were hurt.)",
+        page, left, right, y, text("part_v_header")
     )
     narrative_height = 64
     narrative_rect = pm.Rect(left, y, right, y + narrative_height)
@@ -983,7 +1099,7 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
     add_textarea_widget(page, narrative_rect, "narrative_text", tooltip=TEXT_TOOLTIPS.get("narrative_text"))
     y = narrative_rect.y1
 
-    y = draw_section_header(page, left, right, y, "PART VI - AUTHENTICATION")
+    y = draw_section_header(page, left, right, y, text("part_vi_header"))
     signature_height = 40
     y, auth_rects = draw_signature_row(
         page,
@@ -992,8 +1108,8 @@ def build_form(page: pm.Page) -> tuple[int | None, str, float] | None:
         content_width,
         signature_height,
         [
-            ("A. PRINTED NAME OF WHINER", 0.5),
-            ("B. SIGNATURE", 0.5),
+            (text("auth_whiner_name_label"), 0.5),
+            (text("auth_signature_label"), 0.5),
         ],
     )
     for (rect, _), name in zip(
@@ -1111,17 +1227,48 @@ def configure_signature_font(
         traceback.print_exc()
 
 
-def main(output_path: str = "blank_form.pdf") -> None:
-    from pathlib import Path
-    import os
-    
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate a Butt Hurt Report PDF form.")
+    parser.add_argument(
+        "-l",
+        "--language",
+        default=DEFAULT_LANGUAGE,
+        help=f"Language code to render (default: {DEFAULT_LANGUAGE})",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        help="Path to write the generated PDF (default: blank_form_<language>.pdf)",
+    )
+    parser.add_argument(
+        "--i18n-path",
+        default=str(DEFAULT_I18N_PATH),
+        help=f"Path to the i18n CSV file (default: {DEFAULT_I18N_PATH})",
+    )
+    parser.add_argument(
+        "--export-widget-data",
+        action="store_true",
+        help="Export widget metadata CSV alongside the PDF.",
+    )
+    args = parser.parse_args()
+
+    language = (args.language or DEFAULT_LANGUAGE).strip()
+    i18n_path = Path(args.i18n_path)
+    catalog = TranslationCatalog(i18n_path)
+    translator = catalog.get_translator(language)
+
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        output_path = Path(f"blank_form_{translator.language}.pdf")
+
     doc = pm.open()
     page = doc.new_page()
-    signature_info, radio_button_updates = build_form(page)
-    doc.save(output_path)
+    signature_info, radio_button_updates = build_form(page, translator)
+    doc.save(str(output_path))
     doc.close()
 
-    post_doc = pm.open(output_path)
+    post_doc = pm.open(str(output_path))
     remove_text_widget_borders(post_doc)
     
     # Apply signature font settings after document is saved and reopened
@@ -1138,8 +1285,8 @@ def main(output_path: str = "blank_form.pdf") -> None:
     fix_radio_button_groups(post_doc, radio_button_updates)
     
     # Save to temporary file then replace the original
-    temp_path = f"{output_path}.tmp"
-    post_doc.save(temp_path)
+    temp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    post_doc.save(str(temp_path))
     
     # Collect metadata AFTER all post-processing
     metadata = collect_metadata(post_doc)
@@ -1147,9 +1294,10 @@ def main(output_path: str = "blank_form.pdf") -> None:
     post_doc.close()
     
     # Replace the original with the temp file
-    os.replace(temp_path, output_path)
+    os.replace(str(temp_path), str(output_path))
     
-    export_metadata(metadata, output_path)
+    if args.export_widget_data:
+        export_metadata(metadata, str(output_path))
 
 
 if __name__ == "__main__":
