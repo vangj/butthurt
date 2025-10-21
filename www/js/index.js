@@ -749,9 +749,20 @@ async function runWithLoadingState(button, task, errorMessage) {
   }
 }
 
+function gtagLog(name, category, label) {
+  if (window.gtag) {
+    window.gtag("event", name, {
+      event_category: category,
+      event_label: label,
+      value: 1
+    });
+  }
+}
+
 async function handlePdfGeneration() {
   const filledBytes = await createFilledPdfBytes();
   const blob = new Blob([filledBytes], { type: "application/pdf" });
+  gtagLog("generate_pdf", "export", "pdf");
   triggerDownload(blob, "butthurt.pdf");
 }
 
@@ -766,6 +777,7 @@ async function handleJpgGeneration() {
   for (const { pageNum, blob } of pages) {
     const paddedPage = String(pageNum).padStart(2, "0");
     const filename = multiPage ? `butthurt-page-${paddedPage}.jpg` : "butthurt.jpg";
+    gtagLog("generate_jpg", "export", "jpg");
     triggerDownload(blob, filename);
   }
 }
