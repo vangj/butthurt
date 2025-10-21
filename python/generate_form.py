@@ -1,17 +1,19 @@
 import argparse
 import csv
 import json
-import math
 import os
 import re
 from collections import defaultdict, deque
 from pathlib import Path
+from dataclasses import dataclass
+import math
 import pymupdf as pm
 
 BLACK = (0, 0, 0)
 
 DEFAULT_TEXT_FONT = "Helvetica"
 DEFAULT_TEXT_SIZE = 10
+DEFAULT_BOLD_FONT = "Helvetica-Bold"
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
 SIGNATURE_FONT_PATH = FONT_DIR / "GreatVibes-Regular.ttf"
 SIGNATURE_FONT_NAME = "GreatVibes"
@@ -31,6 +33,65 @@ PART_PREFIX_PART: dict[str, int] = {
 
 DEFAULT_LANGUAGE = "en"
 DEFAULT_I18N_PATH = Path(__file__).resolve().parent / "i18n.csv"
+
+@dataclass
+class FontProfile:
+    regular_path: Path | None = None
+    bold_path: Path | None = None
+    regular_name: str = DEFAULT_TEXT_FONT
+    bold_name: str = DEFAULT_BOLD_FONT
+
+
+FONT_PROFILES: dict[str, FontProfile] = {
+    "zh": FontProfile(
+        regular_path=FONT_DIR / "SourceHanSansSC-Regular.otf",
+        bold_path=FONT_DIR / "SourceHanSansSC-Bold.otf",
+        regular_name="SourceHanSansSC-Regular",
+        bold_name="SourceHanSansSC-Bold",
+    )
+}
+
+CURRENT_TEXT_FONT = DEFAULT_TEXT_FONT
+CURRENT_BOLD_FONT = DEFAULT_BOLD_FONT
+
+
+def configure_fonts_for_language(page: pm.Page, language: str) -> tuple[str, str]:
+    profile = FONT_PROFILES.get(language)
+    if not profile:
+        return DEFAULT_TEXT_FONT, DEFAULT_BOLD_FONT
+
+    regular_name = DEFAULT_TEXT_FONT
+    bold_name = DEFAULT_BOLD_FONT
+
+    try:
+        if profile.regular_path and profile.regular_path.exists():
+            page.insert_font(
+                fontname=profile.regular_name,
+                fontfile=str(profile.regular_path),
+            )
+            regular_name = profile.regular_name
+        else:
+            print(f"Warning: Regular font file not found for language '{language}'. Using default font.")
+            regular_name = DEFAULT_TEXT_FONT
+    except Exception as exc:
+        print(f"Warning: Failed to load regular font for language '{language}': {exc}")
+        regular_name = DEFAULT_TEXT_FONT
+
+    try:
+        if profile.bold_path and profile.bold_path.exists():
+            page.insert_font(
+                fontname=profile.bold_name,
+                fontfile=str(profile.bold_path),
+            )
+            bold_name = profile.bold_name
+        else:
+            print(f"Warning: Bold font file not found for language '{language}'. Using default bold font.")
+            bold_name = DEFAULT_BOLD_FONT
+    except Exception as exc:
+        print(f"Warning: Failed to load bold font for language '{language}': {exc}")
+        bold_name = DEFAULT_BOLD_FONT
+
+    return regular_name, bold_name
 
 I18N_KEYS: dict[str, str] = {
     "title": "1",
@@ -565,15 +626,20 @@ def insert_center_text(
     rect: pm.Rect,
     text: str,
     *,
-    font: str = "Helvetica",
+    font: str | None = None,
     size: float = 10,
     color=BLACK,
 ) -> None:
-    text_width = pm.get_text_length(text, fontname=font, fontsize=size)
-    x = rect.x0 + (rect.width - text_width) / 2
-    # approximate baseline position for vertical centering
-    baseline = rect.y0 + (rect.height + size) / 2 - size * 0.3
-    page.insert_text((x, baseline), text, fontname=font, fontsize=size, color=color)
+    if font is None:
+        font = CURRENT_BOLD_FONT
+    page.insert_textbox(
+        rect,
+        text,
+        fontname=font,
+        fontsize=size,
+        align=pm.TEXT_ALIGN_CENTER,
+        color=color,
+    )
 
 
 def insert_text(
@@ -581,12 +647,22 @@ def insert_text(
     rect: pm.Rect,
     text: str,
     *,
-    font: str = "Helvetica",
+    font: str | None = None,
     size: float = 10,
     align: int = pm.TEXT_ALIGN_LEFT,
     color=BLACK,
 ) -> None:
+    if font is None:
+        font = CURRENT_TEXT_FONT
     page.insert_textbox(rect, text, fontname=font, fontsize=size, align=align, color=color)
+
+
+def measure_text_width(text: str, font_name: str, font_size: float) -> float:
+    try:
+        return pm.get_text_length(text, fontname=font_name, fontsize=font_size)
+    except Exception:
+        # Fallback approximation assumes average character width at 0.6 * font size
+        return len(text) * font_size * 0.6
 
 
 def draw_section_header(page: pm.Page, left: float, right: float, y: float, text: str) -> float:
@@ -596,7 +672,6 @@ def draw_section_header(page: pm.Page, left: float, right: float, y: float, text
         page,
         pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 4),
         text,
-        font="Helvetica-Bold",
         size=10,
     )
     return rect.y1
@@ -620,7 +695,7 @@ def draw_labeled_box(
     line_top = rect.y0
     for label, body in rows:
         label_rect = pm.Rect(rect.x0 + 6, line_top + 4, rect.x0 + label_width, line_top + line_height - 4)
-        insert_text(page, label_rect, label, font="Helvetica-Bold", size=8)
+        insert_text(page, label_rect, label, font=CURRENT_BOLD_FONT, size=8)
         body_rect = pm.Rect(label_rect.x1 + 6, line_top + 4, rect.x1 - 6, line_top + line_height - 4)
         insert_text(page, body_rect, body, size=8)
         line_top += gap
@@ -646,7 +721,7 @@ def draw_field_row(
             page,
             pm.Rect(rect.x0 + 4, rect.y0 + 4, rect.x1 - 4, rect.y1 - 6),
             label,
-            font="Helvetica-Bold",
+            font=CURRENT_BOLD_FONT,
             size=7,
         )
         x += field_width
@@ -667,7 +742,7 @@ def draw_checkbox_line(
         page,
         pm.Rect(left + 4, y, right - 4, y + 26),
         question,
-        font="Helvetica-Bold",
+        font=CURRENT_BOLD_FONT,
         size=8,
     )
     box_y = y + 22
@@ -772,7 +847,10 @@ def draw_checkbox_grid(
     row_height: float = 18,
     field_prefix: str = "checkbox",
     font_size: float = 8,
+    font_name: str | None = None,
 ) -> float:
+    if font_name is None:
+        font_name = CURRENT_TEXT_FONT
     content_width = right - left
     column_width = content_width / columns
     box_size = 10
@@ -789,7 +867,7 @@ def draw_checkbox_grid(
             if not item:
                 lines = 1
             else:
-                text_width = pm.get_text_length(item, fontname="Helvetica", fontsize=font_size)
+                text_width = measure_text_width(item, font_name, font_size)
                 lines = max(1, math.ceil(text_width / text_width_available))
             line_counts.append(lines)
             if lines > max_lines:
@@ -812,7 +890,7 @@ def draw_checkbox_grid(
             tooltip = f"{part_label}, Option is {item}"
             _TOOLTIP_QUEUE[widget.field_name].append(tooltip)
             text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height_actual - 4)
-            insert_text(page, text_rect, item, size=font_size)
+            insert_text(page, text_rect, item, size=font_size, font=font_name)
             x += column_width
             field_index += 1
         y += row_height_actual
@@ -838,7 +916,7 @@ def draw_signature_row(
             page,
             pm.Rect(rect.x0 + 4, rect.y0 + 4, rect.x1 - 4, rect.y1 - 6),
             label,
-            font="Helvetica-Bold",
+            font=CURRENT_BOLD_FONT,
             size=7,
         )
         x += block_width
@@ -851,7 +929,7 @@ def add_text_widget(
     rect: pm.Rect,
     field_name: str,
     *,
-    font_name: str = DEFAULT_TEXT_FONT,
+    font_name: str | None = None,
     font_size: float = DEFAULT_TEXT_SIZE,
     top_offset: float | None = None,
     tooltip: str | None = None,
@@ -866,7 +944,7 @@ def add_text_widget(
     widget.field_name = field_name
     widget.field_type = pm.PDF_WIDGET_TYPE_TEXT
     widget.rect = field_rect
-    widget.text_font = font_name
+    widget.text_font = font_name or CURRENT_TEXT_FONT
     widget.text_fontsize = font_size
     widget.text_color = BLACK
     widget.border_color = None
@@ -884,7 +962,7 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
     widget.field_name = field_name
     widget.field_type = pm.PDF_WIDGET_TYPE_TEXT
     widget.rect = field_rect
-    widget.text_font = "Helvetica"
+    widget.text_font = CURRENT_TEXT_FONT
     widget.text_fontsize = 10
     widget.text_color = BLACK
     widget.border_color = None
@@ -898,265 +976,254 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
 
 def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, float] | None:
     doc = page.parent
-    signature_font_name = DEFAULT_TEXT_FONT
+    global CURRENT_TEXT_FONT, CURRENT_BOLD_FONT
+
+    previous_text_font = CURRENT_TEXT_FONT
+    previous_bold_font = CURRENT_BOLD_FONT
+    CURRENT_TEXT_FONT, CURRENT_BOLD_FONT = configure_fonts_for_language(page, translator.language)
+
+    signature_font_name = CURRENT_TEXT_FONT
     signature_font_xref: int | None = None
     signature_font_size = 16
     text = translator.text
-    
-    # Insert the custom font at the document level, not page level
-    if SIGNATURE_FONT_PATH.exists():
-        try:
-            # Use insert_font to embed the font
-            signature_font_xref = page.insert_font(
-                fontname=SIGNATURE_FONT_NAME, fontfile=str(SIGNATURE_FONT_PATH)
-            )
-            signature_font_name = SIGNATURE_FONT_NAME
-        except Exception as e:
-            print(f"Failed to load signature font: {e}")
-            signature_font_name = DEFAULT_TEXT_FONT
-            signature_font_xref = None
 
-    width = page.rect.width
-    height = page.rect.height
-    margin = 26
-    left = margin
-    right = width - margin
-    top = margin
-    bottom = height - margin
-    content_width = right - left
+    try:
+        if SIGNATURE_FONT_PATH.exists():
+            try:
+                signature_font_xref = page.insert_font(
+                    fontname=SIGNATURE_FONT_NAME,
+                    fontfile=str(SIGNATURE_FONT_PATH),
+                )
+                signature_font_name = SIGNATURE_FONT_NAME
+            except Exception as e:
+                print(f"Failed to load signature font: {e}")
+                signature_font_name = CURRENT_TEXT_FONT
+                signature_font_xref = None
 
-    outer_rect = pm.Rect(left, top, right, bottom)
-    page.draw_rect(outer_rect, color=BLACK, width=1.5)
+        width = page.rect.width
+        height = page.rect.height
+        margin = 26
+        left = margin
+        right = width - margin
+        top = margin
+        bottom = height - margin
+        content_width = right - left
 
-    y = top
+        outer_rect = pm.Rect(left, top, right, bottom)
+        page.draw_rect(outer_rect, color=BLACK, width=1.5)
 
-    header_height = 56
-    header_rect = pm.Rect(left, y, right, y + header_height)
-    insert_center_text(
-        page,
-        header_rect,
-        text("title"),
-        font="Helvetica-Bold",
-        size=30,
-        color=BLACK,
-    )
-    y += header_height
-    page.draw_line((left, y), (right, y))
+        y = top
 
-    info_height = 26
-    info_rect = pm.Rect(left, y, right, y + info_height)
-    page.draw_rect(info_rect, color=BLACK, width=1)
-    insert_center_text(
-        page,
-        info_rect,
-        text("privacy_statement"),
-        font="Helvetica-Bold",
-        size=11,
-    )
-    y += info_height
+        header_height = 56
+        header_rect = pm.Rect(left, y, right, y + header_height)
+        insert_center_text(page, header_rect, text("title"), size=30, color=BLACK)
+        y += header_height
+        page.draw_line((left, y), (right, y))
 
-    y = draw_labeled_box(
-        page,
-        left,
-        right,
-        y,
-        [
-            (text("principal_purpose_label"), text("principal_purpose_text")),
-            (text("routine_uses_label"), text("routine_uses_text")),
-        ],
-        row_gap=10,
-    )
+        info_height = 26
+        info_rect = pm.Rect(left, y, right, y + info_height)
+        page.draw_rect(info_rect, color=BLACK, width=1)
+        insert_center_text(page, info_rect, text("privacy_statement"), size=11)
+        y += info_height
 
-    y = draw_section_header(page, left, right, y, text("part_i_header"))
-    y, admin_row_one = draw_field_row(
-        page,
-        left,
-        y,
-        content_width,
-        40,
-        [
-            (text("admin_whiner_name_label"), 0.45),
-            (text("admin_social_security_label"), 0.27),
-            (text("admin_report_date_label"), 0.28),
-        ],
-    )
-    for (rect, _), name in zip(
-        admin_row_one,
-        ["admin_whiner_name", "admin_social_security", "admin_report_date"],
-    ):
-        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
+        y = draw_labeled_box(
+            page,
+            left,
+            right,
+            y,
+            [
+                (text("principal_purpose_label"), text("principal_purpose_text")),
+                (text("routine_uses_label"), text("routine_uses_text")),
+            ],
+            row_gap=10,
+        )
 
-    y, admin_row_two = draw_field_row(
-        page,
-        left,
-        y,
-        content_width,
-        40,
-        [
-            (text("admin_organization_label"), 0.5),
-            (text("admin_preparer_label"), 0.5),
-        ],
-    )
-    for (rect, _), name in zip(
-        admin_row_two,
-        ["admin_organization", "admin_preparer_name"],
-    ):
-        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
+        y = draw_section_header(page, left, right, y, text("part_i_header"))
+        y, admin_row_one = draw_field_row(
+            page,
+            left,
+            y,
+            content_width,
+            40,
+            [
+                (text("admin_whiner_name_label"), 0.45),
+                (text("admin_social_security_label"), 0.27),
+                (text("admin_report_date_label"), 0.28),
+            ],
+        )
+        for (rect, _), name in zip(
+            admin_row_one,
+            ["admin_whiner_name", "admin_social_security", "admin_report_date"],
+        ):
+            add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
-    y = draw_section_header(page, left, right, y, text("part_ii_header"))
-    y, incident_row_one = draw_field_row(
-        page,
-        left,
-        y,
-        content_width,
-        40,
-        [
-            (text("incident_date_label"), 0.33),
-            (text("incident_time_label"), 0.33),
-            (text("incident_location_label"), 0.34),
-        ],
-    )
-    for (rect, _), name in zip(
-        incident_row_one,
-        [
-            "incident_date",
-            "incident_time",
-            "incident_location",
-        ],
-    ):
-        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
+        y, admin_row_two = draw_field_row(
+            page,
+            left,
+            y,
+            content_width,
+            40,
+            [
+                (text("admin_organization_label"), 0.5),
+                (text("admin_preparer_label"), 0.5),
+            ],
+        )
+        for (rect, _), name in zip(
+            admin_row_two,
+            ["admin_organization", "admin_preparer_name"],
+        ):
+            add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
-    y, incident_row_two = draw_field_row(
-        page,
-        left,
-        y,
-        content_width,
-        40,
-        [
-            (text("incident_offender_name_label"), 0.5),
-            (text("incident_offender_org_label"), 0.5),
-        ],
-    )
-    for (rect, _), name in zip(
-        incident_row_two,
-        [
-            "incident_offender_name",
-            "incident_offender_org",
-        ],
-    ):
-        add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
+        y = draw_section_header(page, left, right, y, text("part_ii_header"))
+        y, incident_row_one = draw_field_row(
+            page,
+            left,
+            y,
+            content_width,
+            40,
+            [
+                (text("incident_date_label"), 0.33),
+                (text("incident_time_label"), 0.33),
+                (text("incident_location_label"), 0.34),
+            ],
+        )
+        for (rect, _), name in zip(
+            incident_row_one,
+            [
+                "incident_date",
+                "incident_time",
+                "incident_location",
+            ],
+        ):
+            add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
-    y = draw_section_header(page, left, right, y, text("part_iii_header"))
-    y = draw_checkbox_line(
-        page,
-        left,
-        right,
-        y + 4,
-        text("injury_question1"),
-        [text("left"), text("right"), text("both")],
-        "injury_question1",
-    )
-    y = draw_checkbox_line(
-        page,
-        left,
-        right,
-        y,
-        text("injury_question2"),
-        [text("yes"), text("no"), text("maybe")],
-        "injury_question2",
-    )
-    y = draw_checkbox_line(
-        page,
-        left,
-        right,
-        y,
-        text("injury_question3"),
-        [text("yes"), text("no"), text("multiple")],
-        "injury_question3",
-    )
-    y = draw_checkbox_line(
-        page,
-        left,
-        right,
-        y,
-        text("injury_question4"),
-        [text("yes"), text("no"), text("maybe")],
-        "injury_question4",
-    )
+        y, incident_row_two = draw_field_row(
+            page,
+            left,
+            y,
+            content_width,
+            40,
+            [
+                (text("incident_offender_name_label"), 0.5),
+                (text("incident_offender_org_label"), 0.5),
+            ],
+        )
+        for (rect, _), name in zip(
+            incident_row_two,
+            [
+                "incident_offender_name",
+                "incident_offender_org",
+            ],
+        ):
+            add_text_widget(page, rect, name, tooltip=TEXT_TOOLTIPS.get(name))
 
-    y = draw_section_header(page, left, right, y, text("part_iv_header"))
-    y = draw_checkbox_grid(
-        page,
-        left,
-        right,
-        y + 6,
-        [text(key) for key in [
-            "reason_thin_skinned",
-            "reason_fix_problems",
-            "reason_two_beers",
-            "reason_wimp",
-            "reason_easily_hurt",
-            "reason_hands_pockets",
-            "reason_hormones",
-            "reason_not_signed_up",
-            "reason_not_offered_post_brief",
-            "reason_crybaby",
-            "reason_not_hero",
-            "reason_requested_post_brief",
-            "reason_want_mommy",
-            "reason_weather",
-            "reason_all_above",
-        ]],
-        columns=3,
-        field_prefix="reason_filing",
-    )
+        y = draw_section_header(page, left, right, y, text("part_iii_header"))
+        y = draw_checkbox_line(
+            page,
+            left,
+            right,
+            y + 4,
+            text("injury_question1"),
+            [text("left"), text("right"), text("both")],
+            "injury_question1",
+        )
+        y = draw_checkbox_line(
+            page,
+            left,
+            right,
+            y,
+            text("injury_question2"),
+            [text("yes"), text("no"), text("maybe")],
+            "injury_question2",
+        )
+        y = draw_checkbox_line(
+            page,
+            left,
+            right,
+            y,
+            text("injury_question3"),
+            [text("yes"), text("no"), text("multiple")],
+            "injury_question3",
+        )
+        y = draw_checkbox_line(
+            page,
+            left,
+            right,
+            y,
+            text("injury_question4"),
+            [text("yes"), text("no"), text("maybe")],
+            "injury_question4",
+        )
 
-    y = draw_section_header(
-        page, left, right, y, text("part_v_header")
-    )
-    narrative_height = 64
-    narrative_rect = pm.Rect(left, y, right, y + narrative_height)
-    page.draw_rect(narrative_rect, color=BLACK, width=1)
-    add_textarea_widget(page, narrative_rect, "narrative_text", tooltip=TEXT_TOOLTIPS.get("narrative_text"))
-    y = narrative_rect.y1
+        y = draw_section_header(page, left, right, y, text("part_iv_header"))
+        y = draw_checkbox_grid(
+            page,
+            left,
+            right,
+            y + 6,
+            [text(key) for key in [
+                "reason_thin_skinned",
+                "reason_fix_problems",
+                "reason_two_beers",
+                "reason_wimp",
+                "reason_easily_hurt",
+                "reason_hands_pockets",
+                "reason_hormones",
+                "reason_not_signed_up",
+                "reason_not_offered_post_brief",
+                "reason_crybaby",
+                "reason_not_hero",
+                "reason_requested_post_brief",
+                "reason_want_mommy",
+                "reason_weather",
+                "reason_all_above",
+            ]],
+            columns=3,
+            field_prefix="reason_filing",
+        )
 
-    y = draw_section_header(page, left, right, y, text("part_vi_header"))
-    signature_height = 40
-    y, auth_rects = draw_signature_row(
-        page,
-        left,
-        y,
-        content_width,
-        signature_height,
-        [
-            (text("auth_whiner_name_label"), 0.5),
-            (text("auth_signature_label"), 0.5),
-        ],
-    )
-    for (rect, _), name in zip(
-        auth_rects,
-        [
-            "auth_whiner_name",
-            "auth_whiner_signature",
-        ],
-    ):
-        kwargs = {"tooltip": TEXT_TOOLTIPS.get(name)}
-        # Don't set custom font here - we'll do it after saving
-        # because widget.update() resets it
-        add_text_widget(page, rect, name, **kwargs)
+        y = draw_section_header(page, left, right, y, text("part_v_header"))
+        narrative_height = 64
+        narrative_rect = pm.Rect(left, y, right, y + narrative_height)
+        page.draw_rect(narrative_rect, color=BLACK, width=1)
+        add_textarea_widget(page, narrative_rect, "narrative_text", tooltip=TEXT_TOOLTIPS.get("narrative_text"))
+        y = narrative_rect.y1
 
-    apply_tooltips(page)
-    
-    # Collect radio button updates that need to be applied after saving
-    radio_button_updates = getattr(doc, '_radio_button_updates', [])
-    
-    # Always return signature info and radio button info for post-processing
-    # We need to set these AFTER saving because widget.update() resets them
-    signature_info = None
-    if signature_font_name == SIGNATURE_FONT_NAME and isinstance(signature_font_xref, int):
-        signature_info = (signature_font_xref, signature_font_name, signature_font_size)
-    
-    return signature_info, radio_button_updates
+        y = draw_section_header(page, left, right, y, text("part_vi_header"))
+        signature_height = 40
+        y, auth_rects = draw_signature_row(
+            page,
+            left,
+            y,
+            content_width,
+            signature_height,
+            [
+                (text("auth_whiner_name_label"), 0.5),
+                (text("auth_signature_label"), 0.5),
+            ],
+        )
+        for (rect, _), name in zip(
+            auth_rects,
+            [
+                "auth_whiner_name",
+                "auth_whiner_signature",
+            ],
+        ):
+            kwargs = {"tooltip": TEXT_TOOLTIPS.get(name)}
+            add_text_widget(page, rect, name, **kwargs)
+
+        apply_tooltips(page)
+
+        radio_button_updates = getattr(doc, '_radio_button_updates', [])
+
+        signature_info = None
+        if signature_font_name == SIGNATURE_FONT_NAME and isinstance(signature_font_xref, int):
+            signature_info = (signature_font_xref, signature_font_name, signature_font_size)
+
+        return signature_info, radio_button_updates
+    finally:
+        CURRENT_TEXT_FONT = previous_text_font
+        CURRENT_BOLD_FONT = previous_bold_font
 
 
 def remove_text_widget_borders(doc: pm.Document) -> None:
