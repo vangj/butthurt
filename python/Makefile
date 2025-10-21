@@ -3,7 +3,7 @@
 all: clean generate copy
 
 clean:
-	rm -f blank_form*.pdf blank_form*.csv
+	rm -f ./pdf/*.pdf
 
 generate:
 	python generate_form.py -l all
