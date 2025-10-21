@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import math
 import os
 import re
 from collections import defaultdict, deque
@@ -770,22 +771,37 @@ def draw_checkbox_grid(
     columns: int,
     row_height: float = 18,
     field_prefix: str = "checkbox",
+    font_size: float = 8,
 ) -> float:
     content_width = right - left
     column_width = content_width / columns
     box_size = 10
-    total_rows = (len(items) + columns - 1) // columns
+    field_index = 0
     idx = 0
-    for _ in range(total_rows):
+    base_row_height = row_height
+    text_width_available = max(column_width - (box_size + 8 + 6 + 4), 1)
+
+    while idx < len(items):
+        row_items = items[idx : idx + columns]
+        line_counts: list[int] = []
+        max_lines = 1
+        for item in row_items:
+            if not item:
+                lines = 1
+            else:
+                text_width = pm.get_text_length(item, fontname="Helvetica", fontsize=font_size)
+                lines = max(1, math.ceil(text_width / text_width_available))
+            line_counts.append(lines)
+            if lines > max_lines:
+                max_lines = lines
+
+        row_height_actual = base_row_height + (max_lines - 1) * (font_size + 4)
         x = left
-        for _ in range(columns):
-            if idx >= len(items):
-                break
-            item = items[idx]
+        for item, lines in zip(row_items, line_counts):
             box_rect = pm.Rect(x + 4, y, x + 4 + box_size, y + box_size)
             page.draw_rect(box_rect, color=BLACK, width=1)
             widget = pm.Widget()
-            widget.field_name = f"{field_prefix}_{idx + 1}"
+            widget.field_name = f"{field_prefix}_{field_index + 1}"
             widget.field_type = pm.PDF_WIDGET_TYPE_CHECKBOX
             widget.rect = box_rect
             widget.field_value = False
@@ -795,11 +811,12 @@ def draw_checkbox_grid(
             part_label = part_label_from_field(field_prefix)
             tooltip = f"{part_label}, Option is {item}"
             _TOOLTIP_QUEUE[widget.field_name].append(tooltip)
-            text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height - 4)
-            insert_text(page, text_rect, item, size=8)
+            text_rect = pm.Rect(box_rect.x1 + 8, y - 2, x + column_width - 6, y + row_height_actual - 4)
+            insert_text(page, text_rect, item, size=font_size)
             x += column_width
-            idx += 1
-        y += row_height
+            field_index += 1
+        y += row_height_actual
+        idx += columns
     return y
 
 
