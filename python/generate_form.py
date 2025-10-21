@@ -167,6 +167,10 @@ class TranslationCatalog:
         selected = self._translations.get(normalized, {})
         return Translator(language=normalized, translations=selected, fallback=fallback)
 
+    @property
+    def languages(self) -> set[str]:
+        """Return the set of available language codes."""
+        return set(self._available_languages)
 
 class Translator:
     """Provide simple access to translation strings with fallback to English."""
@@ -1255,49 +1259,65 @@ def main() -> None:
     language = (args.language or DEFAULT_LANGUAGE).strip()
     i18n_path = Path(args.i18n_path)
     catalog = TranslationCatalog(i18n_path)
-    translator = catalog.get_translator(language)
 
-    if args.output:
-        output_path = Path(args.output)
+    def render_language(translator: Translator, output_path: Path) -> None:
+        doc = pm.open()
+        page = doc.new_page()
+        signature_info, radio_button_updates = build_form(page, translator)
+        doc.save(str(output_path))
+        doc.close()
+
+        post_doc = pm.open(str(output_path))
+        remove_text_widget_borders(post_doc)
+        
+        # Apply signature font settings after document is saved and reopened
+        if signature_info:
+            signature_font_xref, signature_font_name, signature_font_size = signature_info
+            if signature_font_xref and signature_font_name == SIGNATURE_FONT_NAME:
+                configure_signature_font(
+                    post_doc,
+                    signature_font_xref,
+                    signature_font_name,
+                    signature_font_size,
+                )
+        
+        fix_radio_button_groups(post_doc, radio_button_updates)
+        
+        # Save to temporary file then replace the original
+        temp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+        post_doc.save(str(temp_path))
+        
+        # Collect metadata AFTER all post-processing
+        metadata = collect_metadata(post_doc)
+        
+        post_doc.close()
+        
+        # Replace the original with the temp file
+        os.replace(str(temp_path), str(output_path))
+        
+        if args.export_widget_data:
+            export_metadata(metadata, str(output_path))
+
+    if language.lower() == "all":
+        if args.output:
+            parser.error("Cannot use --output when generating all languages.")
+        available_languages = sorted(
+            catalog.languages,
+            key=lambda code: (code != DEFAULT_LANGUAGE, code),
+        )
+        if not available_languages:
+            parser.error(f"No languages found in {i18n_path}.")
+        for lang_code in available_languages:
+            translator = catalog.get_translator(lang_code)
+            output_path = Path(f"blank_form_{translator.language}.pdf")
+            render_language(translator, output_path)
     else:
-        output_path = Path(f"blank_form_{translator.language}.pdf")
-
-    doc = pm.open()
-    page = doc.new_page()
-    signature_info, radio_button_updates = build_form(page, translator)
-    doc.save(str(output_path))
-    doc.close()
-
-    post_doc = pm.open(str(output_path))
-    remove_text_widget_borders(post_doc)
-    
-    # Apply signature font settings after document is saved and reopened
-    if signature_info:
-        signature_font_xref, signature_font_name, signature_font_size = signature_info
-        if signature_font_xref and signature_font_name == SIGNATURE_FONT_NAME:
-            configure_signature_font(
-                post_doc,
-                signature_font_xref,
-                signature_font_name,
-                signature_font_size,
-            )
-    
-    fix_radio_button_groups(post_doc, radio_button_updates)
-    
-    # Save to temporary file then replace the original
-    temp_path = output_path.with_suffix(output_path.suffix + ".tmp")
-    post_doc.save(str(temp_path))
-    
-    # Collect metadata AFTER all post-processing
-    metadata = collect_metadata(post_doc)
-    
-    post_doc.close()
-    
-    # Replace the original with the temp file
-    os.replace(str(temp_path), str(output_path))
-    
-    if args.export_widget_data:
-        export_metadata(metadata, str(output_path))
+        translator = catalog.get_translator(language)
+        if args.output:
+            output_path = Path(args.output)
+        else:
+            output_path = Path(f"blank_form_{translator.language}.pdf")
+        render_language(translator, output_path)
 
 
 if __name__ == "__main__":
