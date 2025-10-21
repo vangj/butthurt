@@ -41,7 +41,8 @@ async function optimizeJavaScript() {
         format: "esm",
         minify: true,
         legalComments: "none",
-        target: "es2019",
+        target: "es2020",
+        supported: { "import-meta": true },
         sourcefile: path.relative(process.cwd(), sourcePath)
       });
       await fs.outputFile(destinationPath, result.code);
