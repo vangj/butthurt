@@ -1,0 +1,152 @@
+body {
+  background-color: #f3f4f6;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.sheet {
+  background-color: #ffffff;
+  border: 2px solid #000;
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 2.5rem 2rem;
+}
+
+.form-title {
+  letter-spacing: 0.08em;
+}
+
+.info-box {
+  border: 1.5px solid #000;
+  padding: 1rem 1.25rem;
+}
+
+.info-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 1.25rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.section-title small {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.form-section {
+  border: 1.5px solid #000;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+}
+
+.form-label,
+legend {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.form-label {
+  margin-bottom: 0.25rem;
+}
+
+legend {
+  float: none;
+  margin-bottom: 0.75rem;
+  width: auto;
+}
+
+.question-legend {
+  font-size: 0.94rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.form-control,
+textarea {
+  border: 1.5px solid #000;
+  border-radius: 0;
+  min-height: 3rem;
+}
+
+textarea {
+  min-height: 10rem;
+}
+
+.form-check-input {
+  border: 1.5px solid #000;
+  border-radius: 0;
+  height: 1.25rem;
+  margin-top: 0;
+  width: 1.25rem;
+}
+
+.form-check-input:checked {
+  background-color: #000;
+  border-color: #000;
+}
+
+.form-check-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+#part-vi-b {
+  font-family: "Great Vibes", "Brush Script MT", cursive;
+  font-size: 2rem;
+  letter-spacing: 0.05em;
+}
+
+.reason-grid .col {
+  display: flex;
+}
+
+.reason-grid .form-check {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0;
+  padding: 0.25rem 0 0.25rem 0.75rem;
+}
+
+.btn-generate {
+  background-color: #fff;
+  border: 1.5px solid #000;
+  color: #000;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-generate:hover,
+.btn-generate:focus-visible {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #fff;
+}
+
+@media (max-width: 915px) {
+
+  .form-section .row>[class*="col-"],
+  .form-section .row>.col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .sheet {
+    padding: 1.75rem 1.25rem;
+  }
+}
