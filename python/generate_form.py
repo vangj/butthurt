@@ -1453,7 +1453,11 @@ def main() -> None:
             parser.error(f"No languages found in {i18n_path}.")
         for lang_code in available_languages:
             translator = catalog.get_translator(lang_code)
-            output_path = Path(f"blank_form_{translator.language}.pdf")
+
+            OUTPUT_DIR = Path("./pdf")
+            OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+
+            output_path = OUTPUT_DIR / f"blank_form_{translator.language}.pdf"
             render_language(translator, output_path)
     else:
         translator = catalog.get_translator(language)
