@@ -61,18 +61,6 @@ FONT_PROFILES: dict[str, FontProfile] = {
         regular_name="NotoSansCJKkr-Regular",
         bold_name="NotoSansCJKkr-Bold",
     ),
-    "vi": FontProfile(
-        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
-        regular_name="NotoSans-Regular",
-        bold_name="NotoSans-Bold",
-    ),
-    "lo": FontProfile(
-        regular_path=FONT_DIR / "NotoSansLao-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSansLao-Bold.ttf",
-        regular_name="NotoSansLao-Regular",
-        bold_name="NotoSansLao-Bold",
-    ),
 }
 
 CURRENT_TEXT_FONT = DEFAULT_TEXT_FONT
@@ -961,7 +949,15 @@ def add_text_widget(
 ) -> pm.Widget:
     if top_offset is None:
         top_offset = min(rect.height * 0.45, 20)
-    field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y1 - 8)
+    
+    # For tall boxes (>45px), use a fixed widget height instead of filling to bottom
+    # This prevents text widgets from becoming too thin in signature boxes
+    if rect.height > 45:
+        widget_height = 20  # Fixed comfortable height for text input
+        field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y0 + top_offset + widget_height)
+    else:
+        field_rect = pm.Rect(rect.x0 + 8, rect.y0 + top_offset, rect.x1 - 8, rect.y1 - 8)
+    
     if field_rect.height <= 0:
         field_rect = pm.Rect(rect.x0 + 8, rect.y0 + 12, rect.x1 - 8, rect.y1 - 8)
     widget = pm.Widget()
@@ -1214,7 +1210,10 @@ def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, 
         y = narrative_rect.y1
 
         y = draw_section_header(page, left, right, y, text("part_vi_header"))
-        signature_height = 40
+        # Calculate remaining space to bottom margin
+        # Use at least 50 pixels for signature boxes, but fill to bottom if more space
+        remaining_space = bottom - y
+        signature_height = max(50, remaining_space)
         y, auth_rects = draw_signature_row(
             page,
             left,
