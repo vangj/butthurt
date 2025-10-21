@@ -48,7 +48,31 @@ FONT_PROFILES: dict[str, FontProfile] = {
         bold_path=FONT_DIR / "SourceHanSansSC-Bold.otf",
         regular_name="SourceHanSansSC-Regular",
         bold_name="SourceHanSansSC-Bold",
-    )
+    ),
+    "ja": FontProfile(
+        regular_path=FONT_DIR / "NotoSansCJKjp-Regular.otf",
+        bold_path=FONT_DIR / "NotoSansCJKjp-Bold.otf",
+        regular_name="NotoSansCJKjp-Regular",
+        bold_name="NotoSansCJKjp-Bold",
+    ),
+    "ko": FontProfile(
+        regular_path=FONT_DIR / "NotoSansCJKkr-Regular.otf",
+        bold_path=FONT_DIR / "NotoSansCJKkr-Bold.otf",
+        regular_name="NotoSansCJKkr-Regular",
+        bold_name="NotoSansCJKkr-Bold",
+    ),
+    "vi": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+    ),
+    "lo": FontProfile(
+        regular_path=FONT_DIR / "NotoSansLao-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSansLao-Bold.ttf",
+        regular_name="NotoSansLao-Regular",
+        bold_name="NotoSansLao-Bold",
+    ),
 }
 
 CURRENT_TEXT_FONT = DEFAULT_TEXT_FONT
