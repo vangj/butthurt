@@ -234,9 +234,8 @@
             </div>
             <div class="col-md-4">
               <label for="part-i-b" class="form-label">B. Social Security Number</label>
-              <input type="text" class="form-control" id="part-i-b" name="part_i_b" inputmode="numeric" maxlength="11"
-                pattern="[0-9]{3}-[0-9]{2}-[0-9]{4}" placeholder="555-55-1111"
-                title="Enter Social Security Number as 555-55-1111.">
+              <input type="text" class="form-control" id="part-i-b" name="part_i_b" inputmode="numeric" maxlength="9"
+                pattern="[0-9]{9}" placeholder="555551111" title="Enter Social Security Number as 9 digits.">
             </div>
             <div class="col-md-3">
               <label for="part-i-c" class="form-label">C. Date Of Report</label>
@@ -757,6 +756,10 @@
     const signatureInput = document.getElementById("part-vi-b");
     const offenderInput = document.getElementById("part-ii-d");
     const ssnInput = document.getElementById("part-i-b");
+    const pdfButton = document.getElementById("generate-pdf-btn");
+    const jpgButton = document.getElementById("generate-jpg-btn");
+    const isRadioNodeList = (element) =>
+      typeof RadioNodeList !== "undefined" && element instanceof RadioNodeList;
 
     const syncFieldValue = (source, target) => {
       if (!source || !target) return;
@@ -768,15 +771,164 @@
     const normalizeSignatureText = (value) =>
       value.trim().replace(/\s+/g, " ");
 
-    const updateSignatureFromName = (rawValue) => {
+    const updateSignatureFromName = (rawValue, { force = false } = {}) => {
       if (!signatureInput) return;
+      if (!force && signatureInput.dataset.signatureSource === "explicit") {
+        return;
+      }
       const trimmed = rawValue ? normalizeSignatureText(rawValue) : "";
       if (!trimmed) {
         signatureInput.value = "";
+        delete signatureInput.dataset.signatureSource;
         return;
       }
       signatureInput.value = trimmed;
+      signatureInput.dataset.signatureSource = "derived";
     };
+
+    const truthyParams = new Set(["1", "true", "yes", "on"]);
+    const falsyParams = new Set(["0", "false", "no", "off"]);
+
+    const setFieldValue = (fieldName, rawValue) => {
+      if (!htmlForm) return false;
+      if (typeof rawValue !== "string") return false;
+
+      const element = htmlForm.elements.namedItem(fieldName);
+      if (!element) return false;
+
+      if (isRadioNodeList(element)) {
+        const options = Array.from(
+          htmlForm.querySelectorAll(`input[name="${fieldName}"]`)
+        );
+        const lowered = rawValue.toLowerCase();
+        const match = options.find(
+          (input) => input.value.toLowerCase() === lowered
+        );
+        if (match) {
+          match.checked = true;
+          return true;
+        }
+        return false;
+      }
+
+      if (element instanceof HTMLInputElement) {
+        if (element.type === "checkbox") {
+          const normalized = rawValue.trim().toLowerCase();
+          if (
+            normalized &&
+            (truthyParams.has(normalized) ||
+              normalized === element.value.toLowerCase())
+          ) {
+            element.checked = true;
+            return true;
+          }
+          if (falsyParams.has(normalized) || normalized === "") {
+            element.checked = false;
+            return true;
+          }
+          return false;
+        }
+
+        element.value = rawValue;
+        return true;
+      }
+
+      if (
+        element instanceof HTMLTextAreaElement ||
+        element instanceof HTMLSelectElement
+      ) {
+        element.value = rawValue;
+        return true;
+      }
+
+      return false;
+    };
+
+    const applyQueryParamsToForm = () => {
+      if (!htmlForm) return;
+
+      const params = new URLSearchParams(window.location.search);
+      if (!params.toString()) return;
+
+      const aliasMap = {
+        part_1_a: "part_i_a",
+        part_4_a: "part_vi_a",
+        part_4_b: "part_vi_b"
+      };
+
+      const registerAlias = (from, to) => {
+        aliasMap[from] = to;
+      };
+
+      for (const suffix of ["a", "b", "c", "d", "e"]) {
+        registerAlias(`p1${suffix}`, `part_i_${suffix}`);
+        registerAlias(`p2${suffix}`, `part_ii_${suffix}`);
+      }
+
+      for (let index = 1; index <= 4; index += 1) {
+        registerAlias(`p3${index}`, `part_iii_${index}`);
+      }
+
+      for (let index = 1; index <= 15; index += 1) {
+        registerAlias(`p4${index}`, `part_iv_${index}`);
+      }
+
+      registerAlias("p4a", "part_vi_a");
+      registerAlias("p4b", "part_vi_b");
+      registerAlias("p5a", "part_vi_a");
+      registerAlias("p5", "part_v");
+
+      const seenValues = new Map();
+      let hasExplicitSignature = false;
+
+      params.forEach((value, rawKey) => {
+        const normalizedKey = rawKey.toLowerCase();
+        if (normalizedKey === "p5b") {
+          return;
+        }
+        const canonicalKey =
+          aliasMap[rawKey] ?? aliasMap[normalizedKey] ?? rawKey;
+        seenValues.set(canonicalKey, value);
+        if (canonicalKey === "part_vi_b") {
+          hasExplicitSignature = true;
+        }
+        setFieldValue(canonicalKey, value);
+      });
+
+      const getString = (value) =>
+        typeof value === "string" ? value : value != null ? String(value) : "";
+      const hasContent = (value) => getString(value).trim().length > 0;
+
+      const part1AValue = seenValues.get("part_i_a");
+      const part6AValue = seenValues.get("part_vi_a");
+      const resolvedName = hasContent(part1AValue)
+        ? getString(part1AValue)
+        : hasContent(part6AValue)
+        ? getString(part6AValue)
+        : "";
+
+      if (hasContent(resolvedName)) {
+        setFieldValue("part_i_a", resolvedName);
+        setFieldValue("part_vi_a", resolvedName);
+        seenValues.set("part_i_a", resolvedName);
+        seenValues.set("part_vi_a", resolvedName);
+      }
+
+      if (hasExplicitSignature && signatureInput) {
+        const explicitValue =
+          seenValues.get("part_vi_b") ?? signatureInput.value ?? "";
+        signatureInput.value = explicitValue;
+        signatureInput.dataset.signatureSource = "explicit";
+      } else {
+        updateSignatureFromName(resolvedName, { force: true });
+        if (hasContent(resolvedName)) {
+          seenValues.set("part_vi_b", getString(resolvedName));
+        }
+      }
+    };
+
+    applyQueryParamsToForm();
+    doExport();
 
     whinerNameInput?.addEventListener("input", () => {
       syncFieldValue(whinerNameInput, authWhinerNameInput);
@@ -798,7 +950,7 @@
     }
     updateSignatureFromName(authWhinerNameInput?.value ?? "");
 
-    const validateForm = () => {
+    function validateForm() {
       if (!htmlForm) return true;
 
       if (whinerNameInput) {
@@ -835,28 +987,25 @@
         const ssnValue = ssnInput.value.trim();
         if (!ssnValue) {
           ssnInput.setCustomValidity("");
-        } else if (/^[0-9]{3}-[0-9]{2}-[0-9]{4}$/.test(ssnValue)) {
+        } else if (/^[0-9]{9}$/.test(ssnValue)) {
           ssnInput.setCustomValidity("");
         } else {
           ssnInput.setCustomValidity(
-            "Enter Social Security Number in format 555-55-1111."
+            "Enter Social Security Number as 9 digits."
           );
         }
       }
 
       return htmlForm.reportValidity();
-    };
+    }
 
-    const pdfButton = document.getElementById("generate-pdf-btn");
-    const jpgButton = document.getElementById("generate-jpg-btn");
-
-    const setButtonsDisabled = (disabled) => {
+    function setButtonsDisabled(disabled) {
       for (const btn of [pdfButton, jpgButton]) {
         if (btn) {
           btn.disabled = disabled;
         }
       }
-    };
+    }
 
     const triggerDownload = (blob, filename) => {
       const downloadUrl = URL.createObjectURL(blob);
@@ -908,7 +1057,7 @@
       radioSelections: collectRadioSelections(radioGroupsConfig)
     });
 
-    const createFilledPdfBytes = async () => {
+    async function createFilledPdfBytes() {
       const response = await fetch(blankPdfUrl);
       if (!response.ok) {
         throw new Error("Unable to load blank PDF form.");
@@ -1022,9 +1171,9 @@
 
       const filledBytes = await pdfDoc.save();
       return filledBytes instanceof Uint8Array ? filledBytes : new Uint8Array(filledBytes);
-    };
+    }
 
-    const renderPdfToJpegs = (pdfBytes, { scale = 2, quality = 0.92 } = {}) => {
+    function renderPdfToJpegs(pdfBytes, { scale = 2, quality = 0.92 } = {}) {
       const worker = new Worker(rendererWorkerUrl, { type: "module" });
       const pdfBytesCopy = pdfBytes.slice();
       return new Promise((resolve, reject) => {
@@ -1073,9 +1222,9 @@
           [pdfBytesCopy.buffer]
         );
       });
-    };
+    }
 
-    const runWithLoadingState = async (button, task, errorMessage) => {
+    async function runWithLoadingState(button, task, errorMessage) {
       if (!validateForm()) {
         return;
       }
@@ -1098,15 +1247,15 @@
           button.textContent = originalLabel;
         }
       }
-    };
+    }
 
-    const handlePdfGeneration = async () => {
+    async function handlePdfGeneration() {
       const filledBytes = await createFilledPdfBytes();
       const blob = new Blob([filledBytes], { type: "application/pdf" });
       triggerDownload(blob, "butthurt.pdf");
-    };
+    }
 
-    const handleJpgGeneration = async () => {
+    async function handleJpgGeneration() {
       const filledBytes = await createFilledPdfBytes();
       const pages = await renderPdfToJpegs(filledBytes, { scale: 2, quality: 0.9 });
       if (!pages.length) {
@@ -1119,7 +1268,32 @@
         const filename = multiPage ? `butthurt-page-${paddedPage}.jpg` : "butthurt.jpg";
         triggerDownload(blob, filename);
       }
-    };
+    }
+
+    function doExport() {
+      const params = new URLSearchParams(window.location.search);
+      const exportParamRaw = params.get("export");
+      if (!exportParamRaw) {
+        return;
+      }
+
+      const normalized = exportParamRaw.trim().toLowerCase();
+      let task = null;
+      let errorMessage = "";
+
+      if (normalized === "pdf") {
+        task = handlePdfGeneration;
+        errorMessage = "We couldn't generate the PDF. Please try again.";
+      } else if (normalized === "jpg") {
+        task = handleJpgGeneration;
+        errorMessage = "We couldn't generate the JPG. Please try again.";
+      } else {
+        console.warn(`Unsupported export format requested: ${exportParamRaw}`);
+        return;
+      }
+
+      runWithLoadingState(null, task, errorMessage);
+    }
 
     pdfButton?.addEventListener("click", () =>
       runWithLoadingState(pdfButton, handlePdfGeneration, "We couldn't generate the PDF. Please try again.")
