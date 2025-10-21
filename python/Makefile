@@ -9,5 +9,5 @@ generate:
 	python generate_form.py -l all
 
 copy:
-	cp -f blank_form_*.pdf ../www/pdf/
-	cp -f blank_form_en.pdf ../www/pdf/blank_form.pdf
+	cp -f ./pdf/*.pdf ../www/pdf/
+	cp -f ./pdf/blank_form_en.pdf ../www/pdf/blank_form.pdf
