@@ -1,13 +1,14 @@
 import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
 import { translations, supportedLanguages } from "./i18n.js";
 
-const blankPdfUrl = new URL("pdf/blank_form.pdf", window.location.href);
 const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
 let signatureFontReadyPromise = null;
 
 const languageStorageKey = "butthurt:ui-language";
 const fallbackLanguage = "en";
+const blankPdfDirectory = "pdf";
+const blankPdfBaseName = "blank_form";
 const languageDisplayNames = {
   en: "English",
   es: "Español",
@@ -18,6 +19,7 @@ const languageDisplayNames = {
   fr: "Français",
   hmn: "Hmoob"
 };
+const loadingStateLabel = "Generating...";
 
 const languageSelect = document.getElementById("language-select");
 
@@ -682,13 +684,54 @@ function collectFormValues() {
   };
 }
 
-async function createFilledPdfBytes() {
-  const response = await fetch(blankPdfUrl);
-  if (!response.ok) {
-    throw new Error("Unable to load blank PDF form.");
+const buildBlankPdfPath = (language) => {
+  if (!language) {
+    return `${blankPdfDirectory}/${blankPdfBaseName}.pdf`;
+  }
+  return `${blankPdfDirectory}/${blankPdfBaseName}_${language}.pdf`;
+};
+
+const getBlankPdfTemplatePaths = (language) => {
+  const candidates = [];
+  const normalized = normalizeLanguageCode(language);
+  if (normalized) {
+    candidates.push(buildBlankPdfPath(normalized));
+  }
+  const fallbackPath = buildBlankPdfPath(fallbackLanguage);
+  if (!candidates.includes(fallbackPath)) {
+    candidates.push(fallbackPath);
+  }
+  candidates.push(buildBlankPdfPath(null));
+  return candidates;
+};
+
+const fetchBlankPdfBytes = async (language) => {
+  const candidates = getBlankPdfTemplatePaths(language);
+  let lastError = null;
+
+  for (const path of candidates) {
+    const url = new URL(path, window.location.href);
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return await response.arrayBuffer();
+      }
+
+      lastError = new Error(
+        `Received status ${response.status} while loading PDF template: ${path}`
+      );
+      console.warn(lastError.message);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Error fetching PDF template ${path}:`, error);
+    }
   }
 
-  const pdfBytes = await response.arrayBuffer();
+  throw lastError ?? new Error("Unable to load blank PDF form.");
+};
+
+async function createFilledPdfBytes() {
+  const pdfBytes = await fetchBlankPdfBytes(activeLanguage);
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
 
   const form = pdfDoc.getForm();
@@ -854,10 +897,16 @@ async function runWithLoadingState(button, task, errorMessage) {
     return;
   }
 
-  const originalLabel = button?.textContent ?? "";
+  const labelElement = button?.querySelector("[data-i18n]");
+  const originalLabelText = labelElement?.textContent ?? null;
+  const originalButtonText = !labelElement && button ? button.textContent : null;
 
   if (button) {
-    button.textContent = "Generating...";
+    if (labelElement) {
+      labelElement.textContent = loadingStateLabel;
+    } else {
+      button.textContent = loadingStateLabel;
+    }
   }
   setButtonsDisabled(true);
 
@@ -869,7 +918,19 @@ async function runWithLoadingState(button, task, errorMessage) {
   } finally {
     setButtonsDisabled(false);
     if (button) {
-      button.textContent = originalLabel;
+      if (
+        labelElement &&
+        originalLabelText !== null &&
+        labelElement.textContent === loadingStateLabel
+      ) {
+        labelElement.textContent = originalLabelText;
+      } else if (
+        !labelElement &&
+        originalButtonText !== null &&
+        button.textContent === loadingStateLabel
+      ) {
+        button.textContent = originalButtonText;
+      }
     }
   }
 }
