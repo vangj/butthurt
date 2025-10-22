@@ -5,7 +5,7 @@ body {
 
 .sheet {
   background-color: #ffffff;
-  border: 2px solid #000;
+  border: 1px solid #d1d5db;
   margin: 0 auto;
   max-width: 960px;
   padding: 2.5rem 2rem;
