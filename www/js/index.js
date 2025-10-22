@@ -55,6 +55,27 @@ const normalizeLanguageCode = (code) => {
   return null;
 };
 
+const queryLanguageInfo = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("language")) {
+      return { language: null, isValid: false, isPresent: false, raw: null };
+    }
+    const raw = params.get("language");
+    const normalized = normalizeLanguageCode(raw);
+    if (normalized) {
+      return { language: normalized, isValid: true, isPresent: true, raw };
+    }
+    if (raw) {
+      console.warn(`Unsupported language requested via query string: ${raw}. Falling back to ${fallbackLanguage}.`);
+    }
+    return { language: fallbackLanguage, isValid: false, isPresent: true, raw };
+  } catch (error) {
+    console.warn("Unable to parse query language parameter:", error);
+    return { language: null, isValid: false, isPresent: false, raw: null };
+  }
+})();
+
 const shouldUseMainThreadRendering = (language) => {
   const normalized = normalizeLanguageCode(language);
   if (!normalized) {
@@ -80,6 +101,10 @@ const persistLanguage = (lang) => {
 };
 
 const getPreferredLanguage = () => {
+  if (queryLanguageInfo.isPresent) {
+    return queryLanguageInfo.language ?? fallbackLanguage;
+  }
+
   const stored = getStoredLanguage();
   if (stored) return stored;
 
@@ -765,14 +790,14 @@ function collectFormValues() {
   };
 }
 
-const buildBlankPdfPath = (language) => {
+function buildBlankPdfPath(language) {
   if (!language) {
     return `${blankPdfDirectory}/${blankPdfBaseName}.pdf`;
   }
   return `${blankPdfDirectory}/${blankPdfBaseName}_${language}.pdf`;
-};
+}
 
-const getBlankPdfTemplatePaths = (language) => {
+function getBlankPdfTemplatePaths(language) {
   const candidates = [];
   const normalized = normalizeLanguageCode(language);
   if (normalized) {
@@ -784,9 +809,9 @@ const getBlankPdfTemplatePaths = (language) => {
   }
   candidates.push(buildBlankPdfPath(null));
   return candidates;
-};
+}
 
-const fetchBlankPdfBytes = async (language) => {
+async function fetchBlankPdfBytes(language) {
   const candidates = getBlankPdfTemplatePaths(language);
   let lastError = null;
 
@@ -809,7 +834,7 @@ const fetchBlankPdfBytes = async (language) => {
   }
 
   throw lastError ?? new Error("Unable to load blank PDF form.");
-};
+}
 
 async function createFilledPdfBytes() {
   const pdfBytes = await fetchBlankPdfBytes(activeLanguage);
