@@ -77,7 +77,7 @@ legend {
 
 .form-control,
 textarea {
-  border: 1.5px solid #000;
+  border: 1.0px solid #9ca3af;
   border-radius: 0;
   min-height: 3rem;
 }
