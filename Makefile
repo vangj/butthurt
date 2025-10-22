@@ -1,6 +1,6 @@
-.PHONY: all rebuild clean
+.PHONY: all rebuild clean lfs-pull
 
-all: clean build
+all: lfs-pull clean build
 
 build:
 	@$(MAKE) -C python all
@@ -13,3 +13,7 @@ clean:
 	rm -fr node_modules
 	rm -fr www-optimized
 	rm -f www/js/radio-on-values.js
+
+lfs-pull:
+	git lfs fetch --all
+	git lfs checkout
