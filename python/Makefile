@@ -4,6 +4,7 @@ all: clean generate copy
 
 clean:
 	rm -f ./pdf/*
+	find . -type d -name "__pycache__" -exec rm -rf {} +
 
 generate:
 	python generate_form.py -l all --export-widget-data
