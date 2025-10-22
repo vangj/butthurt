@@ -1130,7 +1130,8 @@ function gtagLog(name, category, label) {
 async function handlePdfGeneration() {
   const filledBytes = await createFilledPdfBytes();
   const blob = new Blob([filledBytes], { type: "application/pdf" });
-  gtagLog("generate_pdf", "export", "pdf");
+  const languageSuffix = (activeLanguage || "unknown").toLowerCase();
+  gtagLog(`generate_${languageSuffix}_pdf`, "export", "pdf");
   const timestamp = getFilenameTimestamp();
   const filename = buildExportFilename({
     extension: "pdf",
@@ -1158,11 +1159,12 @@ async function handleJpgGeneration() {
     language: activeLanguage,
     timestamp
   };
+  const languageSuffix = (activeLanguage || "unknown").toLowerCase();
   for (const { pageNum, blob } of pages) {
     const filename = buildExportFilename(
       multiPage ? { ...baseFilenameOptions, pageNum } : baseFilenameOptions
     );
-    gtagLog("generate_jpg", "export", "jpg");
+    gtagLog(`generate_${languageSuffix}_jpg`, "export", "jpg");
     triggerDownload(blob, filename);
   }
 }
