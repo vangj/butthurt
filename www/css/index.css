@@ -156,6 +156,22 @@ textarea {
   color: #fff;
 }
 
+.open-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #0d6efd;
+  text-decoration: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.open-source-link:hover,
+.open-source-link:focus-visible {
+  color: #0a58ca;
+  text-decoration: underline;
+}
+
 @media (max-width: 915px) {
 
   .form-section .row>[class*="col-"],
