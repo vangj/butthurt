@@ -28,9 +28,61 @@ body {
   white-space: nowrap;
 }
 
+.form-title-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.05) 70%, transparent 100%);
+}
+
 .form-title-icon {
   height: clamp(2rem, 5vw, 2.75rem);
   width: auto;
+  display: block;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  animation: logoCycle 4s linear infinite;
+  filter: drop-shadow(0 0 0.8rem rgba(255, 96, 205, 0.5)) saturate(125%);
+}
+
+@keyframes logoCycle {
+  0% {
+    transform: scale(1) rotate(0deg) rotateY(0deg) rotateX(0deg);
+    filter: drop-shadow(0 0 0.8rem rgba(255, 96, 205, 0.5)) saturate(125%);
+  }
+  20% {
+    transform: scale(1.16) rotate(0deg) rotateY(0deg) rotateX(0deg);
+    filter: drop-shadow(0 0 1.45rem rgba(255, 204, 96, 0.65)) saturate(150%);
+  }
+  40% {
+    transform: scale(0.95) rotate(0deg) rotateY(0deg) rotateX(0deg);
+    filter: drop-shadow(0 0 0.65rem rgba(103, 168, 255, 0.45)) saturate(105%);
+  }
+  62.5% {
+    transform: scale(1) rotate(0deg) rotateY(0deg) rotateX(0deg);
+    filter: drop-shadow(0 0 0.8rem rgba(255, 96, 205, 0.5)) saturate(125%);
+  }
+  75% {
+    transform: scale(1) rotate(360deg) rotateY(180deg) rotateX(0deg);
+    filter: drop-shadow(0 0 0.9rem rgba(255, 150, 235, 0.6)) saturate(140%);
+  }
+  87.5% {
+    transform: scale(1) rotate(360deg) rotateY(180deg) rotateX(180deg);
+    filter: drop-shadow(0 0 0.85rem rgba(128, 214, 255, 0.5)) saturate(120%);
+  }
+  100% {
+    transform: scale(1) rotate(360deg) rotateY(360deg) rotateX(360deg);
+    filter: drop-shadow(0 0 0.8rem rgba(255, 96, 205, 0.5)) saturate(125%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form-title-icon {
+    animation: none;
+  }
 }
 
 .info-box {
