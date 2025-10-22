@@ -20,6 +20,19 @@ You need the following.
 
 Then simply type in `make` to build the optimized distribution in `www-optimized`.
 
+## i18n
+
+Currently supports the following languages
+
+- `en`: English
+- `es`: Español
+- `zh`: 中文
+- `ko`: 한국어
+- `ja`: 日本語
+- `de`: Deutsch
+- `fr`: Français
+- `hmn`: Hmoob
+
 ## License
 
 Released under the Do Whatever The Fuck You Want License. See `LICENSE`.
