@@ -83,6 +83,34 @@ const getTranslation = (lang, key) => {
 
 let activeLanguage = fallbackLanguage;
 
+const formatDateTimeForFilename = (date) => {
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const hours24 = date.getHours();
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  const hours = String(hours12).padStart(2, "0");
+  return `${year}${month}${day}_${hours}${minutes}${period}`;
+};
+
+const getFilenameTimestamp = () => formatDateTimeForFilename(new Date());
+
+const sanitizeForFilename = (value) => value.replace(/[^a-z0-9_-]+/gi, "_");
+
+const buildExportFilename = ({ extension, language, timestamp, pageNum }) => {
+  const normalizedLanguage = normalizeLanguageCode(language) ?? fallbackLanguage;
+  const safeLanguage = sanitizeForFilename(normalizedLanguage);
+  const safeTimestamp = sanitizeForFilename(timestamp ?? getFilenameTimestamp());
+  let base = `butthurt_${safeLanguage}_${safeTimestamp}`;
+  if (typeof pageNum === "number") {
+    const paddedPage = String(pageNum).padStart(2, "0");
+    base += `_page-${paddedPage}`;
+  }
+  return `${base}.${extension}`;
+};
+
 const applyTranslations = (lang, { skipStorage = false } = {}) => {
   const normalized = normalizeLanguageCode(lang) ?? fallbackLanguage;
   activeLanguage = normalized;
@@ -949,7 +977,13 @@ async function handlePdfGeneration() {
   const filledBytes = await createFilledPdfBytes();
   const blob = new Blob([filledBytes], { type: "application/pdf" });
   gtagLog("generate_pdf", "export", "pdf");
-  triggerDownload(blob, "butthurt.pdf");
+  const timestamp = getFilenameTimestamp();
+  const filename = buildExportFilename({
+    extension: "pdf",
+    language: activeLanguage,
+    timestamp
+  });
+  triggerDownload(blob, filename);
 }
 
 async function handleJpgGeneration() {
@@ -960,9 +994,16 @@ async function handleJpgGeneration() {
   }
 
   const multiPage = pages.length > 1;
+  const timestamp = getFilenameTimestamp();
+  const baseFilenameOptions = {
+    extension: "jpg",
+    language: activeLanguage,
+    timestamp
+  };
   for (const { pageNum, blob } of pages) {
-    const paddedPage = String(pageNum).padStart(2, "0");
-    const filename = multiPage ? `butthurt-page-${paddedPage}.jpg` : "butthurt.jpg";
+    const filename = buildExportFilename(
+      multiPage ? { ...baseFilenameOptions, pageNum } : baseFilenameOptions
+    );
     gtagLog("generate_jpg", "export", "jpg");
     triggerDownload(blob, filename);
   }
