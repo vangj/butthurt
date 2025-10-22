@@ -6,7 +6,7 @@ clean:
 	rm -f ./pdf/*.pdf
 
 generate:
-	python generate_form.py -l all
+	python generate_form.py -l all --export-widget-data
 
 copy:
 	cp -f ./pdf/*.pdf ../www/pdf/
