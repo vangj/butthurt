@@ -1,5 +1,7 @@
 import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
 import { translations, supportedLanguages } from "./i18n.js";
+import { radioGroupsDefinition } from "./radio-groups.js";
+import { radioOnValueMap } from "./radio-on-values.js";
 
 const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
@@ -20,6 +22,18 @@ const languageDisplayNames = {
   hmn: "Hmoob"
 };
 const loadingStateLabel = "Generating...";
+const sanitizePdfOptionName = (value) => {
+  if (typeof value !== "string" || !value.trim()) {
+    return "Option";
+  }
+  return (
+    value
+      .normalize("NFKC")
+      .trim()
+      .replace(/[^A-Za-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "Option"
+  );
+};
 
 const languageSelect = document.getElementById("language-select");
 
@@ -296,19 +310,49 @@ const setCheckBoxes = (form, mappings) => {
   }
 };
 
-const collectRadioSelections = (radioConfig) => {
+const resolveRadioOnValue = (language, fieldName, optionDef) => {
+  const languageMap = radioOnValueMap[language]?.[fieldName] ?? null;
+  if (languageMap && Object.prototype.hasOwnProperty.call(languageMap, optionDef.value)) {
+    return languageMap[optionDef.value];
+  }
+
+  const fallbackMap = radioOnValueMap[fallbackLanguage]?.[fieldName] ?? null;
+  if (fallbackMap && Object.prototype.hasOwnProperty.call(fallbackMap, optionDef.value)) {
+    return fallbackMap[optionDef.value];
+  }
+
+  const translatedLabel =
+    getTranslation(language, optionDef.labelKey) ??
+    getTranslation(fallbackLanguage, optionDef.labelKey) ??
+    "";
+  if (translatedLabel) {
+    return sanitizePdfOptionName(translatedLabel);
+  }
+
+  return sanitizePdfOptionName(optionDef.value);
+};
+
+const collectRadioSelections = () => {
   const selections = {};
-  for (const [fieldName, config] of Object.entries(radioConfig)) {
-    const { htmlName, matchers } = config;
+  for (const group of radioGroupsDefinition) {
+    const { fieldName, htmlName, options } = group;
     const checkedInputs = Array.from(
       document.querySelectorAll(`input[name="${htmlName}"]:checked`)
     );
-    const selectedValue = checkedInputs.length
-      ? checkedInputs[0].value.toLowerCase()
-      : null;
-    const selectedConfig =
-      selectedValue && matchers[selectedValue] ? matchers[selectedValue] : null;
-    selections[fieldName] = selectedConfig?.onValue ?? null;
+    const selectedValue = checkedInputs.length ? checkedInputs[0].value : null;
+    if (!selectedValue) {
+      selections[fieldName] = null;
+      continue;
+    }
+
+    const optionDef = options.find((option) => option.value === selectedValue);
+    if (!optionDef) {
+      selections[fieldName] = null;
+      continue;
+    }
+
+    const onValue = resolveRadioOnValue(activeLanguage, fieldName, optionDef);
+    selections[fieldName] = onValue ?? null;
   }
   return selections;
 };
@@ -340,41 +384,6 @@ const applyRadioSelections = (form, selections) => {
       } catch (error) {
         console.warn(`Unable to clear radio group ${fieldName}:`, error);
       }
-    }
-  }
-};
-
-const radioGroupsConfig = {
-  injury_question1: {
-    htmlName: "part_iii_1",
-    matchers: {
-      left: { tooltip: "option is left", onValue: "LEFT" },
-      right: { tooltip: "option is right", onValue: "RIGHT" },
-      both: { tooltip: "option is both", onValue: "BOTH" }
-    }
-  },
-  injury_question2: {
-    htmlName: "part_iii_2",
-    matchers: {
-      yes: { tooltip: "option is yes", onValue: "YES" },
-      no: { tooltip: "option is no", onValue: "NO" },
-      maybe: { tooltip: "option is maybe", onValue: "MAYBE" }
-    }
-  },
-  injury_question3: {
-    htmlName: "part_iii_3",
-    matchers: {
-      yes: { tooltip: "option is yes", onValue: "YES" },
-      no: { tooltip: "option is no", onValue: "NO" },
-      multiple: { tooltip: "option is multiple", onValue: "MULTIPLE" }
-    }
-  },
-  injury_question4: {
-    htmlName: "part_iii_4",
-    matchers: {
-      yes: { tooltip: "option is yes", onValue: "YES" },
-      no: { tooltip: "option is no", onValue: "NO" },
-      maybe: { tooltip: "option is maybe", onValue: "MAYBE" }
     }
   }
 };
@@ -708,7 +717,7 @@ function collectFormValues() {
       reason_filing_12: isChecked("part-iv-14"),
       reason_filing_15: isChecked("part-iv-15")
     },
-    radioSelections: collectRadioSelections(radioGroupsConfig)
+    radioSelections: collectRadioSelections()
   };
 }
 

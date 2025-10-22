@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "clean": "rm -rf www-optimized",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "build:radio-map": "node scripts/build-radio-on-values.mjs"
   },
   "repository": {
     "type": "git",
