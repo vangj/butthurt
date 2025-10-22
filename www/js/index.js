@@ -106,7 +106,8 @@ const formatDateTimeForFilename = (date) => {
   const period = hours24 >= 12 ? "PM" : "AM";
   const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
   const hours = String(hours12).padStart(2, "0");
-  return `${year}${month}${day}_${hours}${minutes}${period}`;
+  const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
+  return `${year}${month}${day}_${hours}${minutes}_${milliseconds}_${period}`;
 };
 
 const getFilenameTimestamp = () => formatDateTimeForFilename(new Date());
