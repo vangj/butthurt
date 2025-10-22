@@ -12,7 +12,19 @@ body {
 }
 
 .form-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 3rem;
   letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.form-title-icon {
+  height: clamp(2.25rem, 6vw, 3rem);
+  width: auto;
 }
 
 .info-box {
