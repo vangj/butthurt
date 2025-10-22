@@ -7,6 +7,7 @@ const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 const pdfJsModuleUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
 const pdfJsWorkerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
 const mainThreadRenderLanguages = new Set(["zh", "ja", "ko"]);
+const pdfJsStandardFontDataUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/standard_fonts/";
 const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
 let signatureFontReadyPromise = null;
 let pdfJsModulePromise = null;
@@ -926,6 +927,7 @@ async function loadPdfJsModule() {
     pdfJsModulePromise = import(pdfJsModuleUrl)
       .then((module) => {
         module.GlobalWorkerOptions.workerSrc = pdfJsWorkerSrc;
+        module.GlobalWorkerOptions.standardFontDataUrl = pdfJsStandardFontDataUrl;
         return module;
       })
       .catch((error) => {
@@ -942,7 +944,8 @@ async function renderPdfToJpegsMainThread(pdfBytes, { scale = 2, quality = 0.92 
   const loadingTask = getDocument({
     data,
     disableFontFace: false,
-    useSystemFonts: true
+    useSystemFonts: true,
+    standardFontDataUrl: pdfJsStandardFontDataUrl
   });
 
   try {

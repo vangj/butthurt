@@ -2,6 +2,8 @@ import { getDocument, GlobalWorkerOptions } from "https://cdn.jsdelivr.net/npm/p
 
 GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
+GlobalWorkerOptions.standardFontDataUrl =
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/standard_fonts/";
 
 self.addEventListener("message", async (event) => {
   const data = event.data;
