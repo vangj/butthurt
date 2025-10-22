@@ -1,6 +1,8 @@
-.PHONY: rebuild clean
+.PHONY: all rebuild clean
 
-rebuild:
+all: clean build
+
+build:
 	@$(MAKE) -C python all
 	npm run build:radio-map
 	npm run build
