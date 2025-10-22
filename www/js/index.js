@@ -4,8 +4,12 @@ import { radioGroupsDefinition } from "./radio-groups.js";
 import { radioOnValueMap } from "./radio-on-values.js";
 
 const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
+const pdfJsModuleUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
+const pdfJsWorkerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
+const mainThreadRenderLanguages = new Set(["zh", "ja", "ko"]);
 const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
 let signatureFontReadyPromise = null;
+let pdfJsModulePromise = null;
 
 const languageStorageKey = "butthurt:ui-language";
 const fallbackLanguage = "en";
@@ -48,6 +52,14 @@ const normalizeLanguageCode = (code) => {
     return basePart;
   }
   return null;
+};
+
+const shouldUseMainThreadRendering = (language) => {
+  const normalized = normalizeLanguageCode(language);
+  if (!normalized) {
+    return false;
+  }
+  return mainThreadRenderLanguages.has(normalized);
 };
 
 const getStoredLanguage = () => {
@@ -222,6 +234,36 @@ const canvasToPngBytes = async (canvas) => {
   }
 
   throw new Error("Unsupported canvas type for signature rendering.");
+};
+
+const canvasToJpegBlob = async (canvas, quality) => {
+  if (typeof OffscreenCanvas !== "undefined" && canvas instanceof OffscreenCanvas) {
+    return await canvas.convertToBlob({ type: "image/jpeg", quality });
+  }
+
+  if (typeof canvas.toBlob === "function") {
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (result) => {
+          if (result) {
+            resolve(result);
+          } else {
+            reject(new Error("Canvas toBlob returned null."));
+          }
+        },
+        "image/jpeg",
+        quality
+      );
+    });
+  }
+
+  if (typeof canvas.toDataURL === "function") {
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    const response = await fetch(dataUrl);
+    return await response.blob();
+  }
+
+  throw new Error("Unsupported canvas type for JPG rendering.");
 };
 
 const renderSignatureToImageBytes = async (text, rect) => {
@@ -879,7 +921,73 @@ async function createFilledPdfBytes() {
   return filledBytes instanceof Uint8Array ? filledBytes : new Uint8Array(filledBytes);
 }
 
-function renderPdfToJpegs(pdfBytes, { scale = 2, quality = 0.92 } = {}) {
+async function loadPdfJsModule() {
+  if (!pdfJsModulePromise) {
+    pdfJsModulePromise = import(pdfJsModuleUrl)
+      .then((module) => {
+        module.GlobalWorkerOptions.workerSrc = pdfJsWorkerSrc;
+        return module;
+      })
+      .catch((error) => {
+        pdfJsModulePromise = null;
+        throw error;
+      });
+  }
+  return pdfJsModulePromise;
+}
+
+async function renderPdfToJpegsMainThread(pdfBytes, { scale = 2, quality = 0.92 } = {}) {
+  const { getDocument } = await loadPdfJsModule();
+  const data = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes);
+  const loadingTask = getDocument({
+    data,
+    disableFontFace: false,
+    useSystemFonts: true
+  });
+
+  try {
+    const pdf = await loadingTask.promise;
+    try {
+      const pages = [];
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d", { alpha: false });
+      if (!context) {
+        throw new Error("Unable to initialize canvas context.");
+      }
+
+      try {
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          try {
+            const viewport = page.getViewport({ scale });
+            const width = Math.max(1, Math.floor(viewport.width));
+            const height = Math.max(1, Math.floor(viewport.height));
+            canvas.width = width;
+            canvas.height = height;
+            await page.render({ canvasContext: context, viewport }).promise;
+            const blob = await canvasToJpegBlob(canvas, quality);
+            pages.push({ pageNum, blob });
+          } finally {
+            page.cleanup?.();
+          }
+        }
+        return pages;
+      } finally {
+        canvas.width = 0;
+        canvas.height = 0;
+        if (typeof canvas.remove === "function") {
+          canvas.remove();
+        }
+      }
+    } finally {
+      pdf.cleanup?.();
+    }
+  } finally {
+    await loadingTask.destroy().catch(() => {});
+  }
+}
+
+function renderPdfToJpegsWithWorker(pdfBytes, { scale = 2, quality = 0.92 } = {}) {
   const worker = new Worker(rendererWorkerUrl, { type: "module" });
   const pdfBytesCopy = pdfBytes.slice();
   return new Promise((resolve, reject) => {
@@ -928,6 +1036,14 @@ function renderPdfToJpegs(pdfBytes, { scale = 2, quality = 0.92 } = {}) {
       [pdfBytesCopy.buffer]
     );
   });
+}
+
+function renderPdfToJpegs(pdfBytes, { scale = 2, quality = 0.92, language = null } = {}) {
+  const renderOptions = { scale, quality };
+  if (shouldUseMainThreadRendering(language)) {
+    return renderPdfToJpegsMainThread(pdfBytes, renderOptions);
+  }
+  return renderPdfToJpegsWithWorker(pdfBytes, renderOptions);
 }
 
 async function runWithLoadingState(button, task, errorMessage) {
@@ -998,7 +1114,11 @@ async function handlePdfGeneration() {
 
 async function handleJpgGeneration() {
   const filledBytes = await createFilledPdfBytes();
-  const pages = await renderPdfToJpegs(filledBytes, { scale: 2, quality: 0.9 });
+  const pages = await renderPdfToJpegs(filledBytes, {
+    scale: 2,
+    quality: 0.9,
+    language: activeLanguage
+  });
   if (!pages.length) {
     throw new Error("No pages were rendered from the PDF.");
   }
