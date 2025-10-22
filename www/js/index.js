@@ -1,9 +1,134 @@
 import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
+import { translations, supportedLanguages } from "./i18n.js";
 
 const blankPdfUrl = new URL("pdf/blank_form.pdf", window.location.href);
 const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
 let signatureFontReadyPromise = null;
+
+const languageStorageKey = "butthurt:ui-language";
+const fallbackLanguage = "en";
+const languageDisplayNames = {
+  en: "English",
+  es: "Español",
+  zh: "中文",
+  ko: "한국어",
+  ja: "日本語",
+  de: "Deutsch",
+  fr: "Français",
+  hmn: "Hmoob"
+};
+
+const languageSelect = document.getElementById("language-select");
+
+const normalizeLanguageCode = (code) => {
+  if (!code) return null;
+  const lowered = code.trim().toLowerCase();
+  if (translations[lowered]) {
+    return lowered;
+  }
+  const [basePart] = lowered.split(/[-_]/);
+  if (basePart && translations[basePart]) {
+    return basePart;
+  }
+  return null;
+};
+
+const getStoredLanguage = () => {
+  try {
+    return normalizeLanguageCode(window.localStorage?.getItem(languageStorageKey));
+  } catch {
+    return null;
+  }
+};
+
+const persistLanguage = (lang) => {
+  try {
+    window.localStorage?.setItem(languageStorageKey, lang);
+  } catch {
+    // Ignore storage failures (private mode, etc.).
+  }
+};
+
+const getPreferredLanguage = () => {
+  const stored = getStoredLanguage();
+  if (stored) return stored;
+
+  const navigatorLanguages = Array.isArray(navigator.languages)
+    ? navigator.languages
+    : [navigator.language];
+
+  for (const candidate of navigatorLanguages) {
+    const normalized = normalizeLanguageCode(candidate);
+    if (normalized) return normalized;
+  }
+
+  return fallbackLanguage;
+};
+
+const getTranslation = (lang, key) => {
+  if (!key) return null;
+  const langTable = translations[lang] ?? null;
+  if (langTable && Object.prototype.hasOwnProperty.call(langTable, key)) {
+    return langTable[key];
+  }
+  const fallbackTable = translations[fallbackLanguage] ?? null;
+  if (fallbackTable && Object.prototype.hasOwnProperty.call(fallbackTable, key)) {
+    return fallbackTable[key];
+  }
+  return null;
+};
+
+let activeLanguage = fallbackLanguage;
+
+const applyTranslations = (lang, { skipStorage = false } = {}) => {
+  const normalized = normalizeLanguageCode(lang) ?? fallbackLanguage;
+  activeLanguage = normalized;
+
+  if (!skipStorage) {
+    persistLanguage(normalized);
+  }
+
+  document.documentElement.lang = normalized;
+
+  const elements = document.querySelectorAll("[data-i18n]");
+  elements.forEach((element) => {
+    const key = element.getAttribute("data-i18n");
+    const translation = getTranslation(normalized, key);
+    if (typeof translation === "string") {
+      element.textContent = translation;
+    }
+  });
+
+  if (languageSelect && languageSelect.value !== normalized) {
+    languageSelect.value = normalized;
+  }
+};
+
+const populateLanguageSelect = (initialLanguage) => {
+  if (!languageSelect) return;
+  languageSelect.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  for (const lang of supportedLanguages) {
+    const option = document.createElement("option");
+    option.value = lang;
+    option.textContent = languageDisplayNames[lang] ?? lang;
+    fragment.append(option);
+  }
+  languageSelect.append(fragment);
+  languageSelect.value = initialLanguage;
+  languageSelect.addEventListener("change", (event) => {
+    applyTranslations(event.target.value);
+  });
+};
+
+const initializeI18n = () => {
+  const initialLanguage = getPreferredLanguage();
+  populateLanguageSelect(initialLanguage);
+  applyTranslations(initialLanguage, { skipStorage: true });
+};
+
+initializeI18n();
 
 const waitForSignatureFont = async () => {
   if (!signatureFontReadyPromise) {
