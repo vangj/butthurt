@@ -201,6 +201,7 @@ const populateLanguageSelect = (initialLanguage) => {
   languageSelect.append(fragment);
   languageSelect.value = initialLanguage;
   languageSelect.addEventListener("change", (event) => {
+    gtagLog(`language_${event.target.value}`, "web", "form");
     applyTranslations(event.target.value);
   });
 };
@@ -600,6 +601,8 @@ const applyQueryParamsToForm = () => {
       hasExplicitSignature = true;
     }
     setFieldValue(canonicalKey, value);
+
+    gtagLog(`querystring_${sanitizeForFilename(canonicalKey)}`, "web", "form");
   });
 
   const getString = (value) =>
