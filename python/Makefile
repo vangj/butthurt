@@ -3,7 +3,7 @@
 all: clean generate copy
 
 clean:
-	rm -f ./pdf/*.pdf
+	rm -f ./pdf/*
 
 generate:
 	python generate_form.py -l all --export-widget-data
