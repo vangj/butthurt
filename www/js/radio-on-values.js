@@ -66,6 +66,28 @@ export const radioOnValueMap = {
       "maybe": "QUIZ_S"
     }
   },
+  "fil": {
+    "injury_question1": {
+      "left": "Kali",
+      "right": "Kanan",
+      "both": "Pare"
+    },
+    "injury_question2": {
+      "yes": "OO",
+      "no": "DI",
+      "maybe": "BKA"
+    },
+    "injury_question3": {
+      "yes": "OO",
+      "no": "DI",
+      "multiple": "MARAMI"
+    },
+    "injury_question4": {
+      "yes": "OO",
+      "no": "DI",
+      "maybe": "BKA"
+    }
+  },
   "fr": {
     "injury_question1": {
       "left": "GAUCHE",
@@ -110,6 +132,28 @@ export const radioOnValueMap = {
       "maybe": "TEJ_ZAUM"
     }
   },
+  "it": {
+    "injury_question1": {
+      "left": "SX",
+      "right": "DX",
+      "both": "ENT"
+    },
+    "injury_question2": {
+      "yes": "SI",
+      "no": "NO",
+      "maybe": "FORSE"
+    },
+    "injury_question3": {
+      "yes": "SI",
+      "no": "NO",
+      "multiple": "PACCO"
+    },
+    "injury_question4": {
+      "yes": "SI",
+      "no": "NO",
+      "maybe": "FORSE"
+    }
+  },
   "ja": {
     "injury_question1": {
       "left": "Option",
@@ -133,6 +177,50 @@ export const radioOnValueMap = {
     }
   },
   "ko": {
+    "injury_question1": {
+      "left": "Option",
+      "right": "Option_1",
+      "both": "Option_2"
+    },
+    "injury_question2": {
+      "yes": "Option",
+      "no": "Option_1",
+      "maybe": "Option_2"
+    },
+    "injury_question3": {
+      "yes": "Option",
+      "no": "Option_1",
+      "multiple": "Option_2"
+    },
+    "injury_question4": {
+      "yes": "Option",
+      "no": "Option_1",
+      "maybe": "Option_2"
+    }
+  },
+  "pt-br": {
+    "injury_question1": {
+      "left": "ESQ",
+      "right": "DIR",
+      "both": "AMB"
+    },
+    "injury_question2": {
+      "yes": "SIM",
+      "no": "N",
+      "maybe": "QUI"
+    },
+    "injury_question3": {
+      "yes": "SIM",
+      "no": "N",
+      "multiple": "MUITOS"
+    },
+    "injury_question4": {
+      "yes": "SIM",
+      "no": "N",
+      "maybe": "QUI"
+    }
+  },
+  "ru": {
     "injury_question1": {
       "left": "Option",
       "right": "Option_1",

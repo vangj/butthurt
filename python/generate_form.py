@@ -65,6 +65,12 @@ FONT_PROFILES: dict[str, FontProfile] = {
         regular_name="NotoSansCJKkr-Regular",
         bold_name="NotoSansCJKkr-Bold",
     ),
+    "ru": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+    ),
 }
 
 CURRENT_TEXT_FONT = DEFAULT_TEXT_FONT

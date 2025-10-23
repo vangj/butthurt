@@ -32,6 +32,10 @@ Currently supports the following languages
 - `de`: Deutsch
 - `fr`: Français
 - `hmn`: Hmoob
+- `fil`: Filipino
+- `it`: Italiano
+- `pt-br`: Português (Brasil)
+- `ru`: Русский
 
 ## License
 
