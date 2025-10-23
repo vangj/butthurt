@@ -85,6 +85,11 @@ body {
   .form-title-icon {
     animation: none;
   }
+
+  .social-link:hover i,
+  .social-link:focus-visible i {
+    animation: none;
+  }
 }
 
 @media (max-width: 480px) {
@@ -223,20 +228,62 @@ textarea {
   color: #fff;
 }
 
-.open-source-link {
-  display: inline-flex;
+.social-footer {
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #0d6efd;
-  text-decoration: none;
-  padding-left: 0;
-  padding-right: 0;
+  justify-content: center;
+  margin-top: 0;
+  padding: 0.5rem 0 1rem;
 }
 
-.open-source-link:hover,
-.open-source-link:focus-visible {
+.social-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.social-link {
+  color: #0d6efd;
+  text-decoration: none;
+  font-size: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  perspective: 800px;
+}
+
+.social-link i {
+  display: inline-block;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.social-link:hover,
+.social-link:focus-visible {
   color: #0a58ca;
-  text-decoration: underline;
+}
+
+.social-link:hover i,
+.social-link:focus-visible i {
+  animation: socialSpin 0.7s ease-out both;
+}
+
+@keyframes socialSpin {
+  0% {
+    transform: rotateY(0deg);
+  }
+  60% {
+    transform: rotateY(540deg);
+  }
+  100% {
+    transform: rotateY(720deg);
+  }
+}
+
+main.container-fluid {
+  padding-bottom: 0.5rem;
 }
 
 @media (max-width: 915px) {
