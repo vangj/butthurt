@@ -37,6 +37,9 @@ Currently supports the following languages
 - `pt-br`: Português (Brasil)
 - `ru`: Русский
 - `vi`: Tiếng Việt
+- `km`: ខ្មែរ
+- `lo`: ລາວ
+- `th`: ไทย
 
 ## License
 

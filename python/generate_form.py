@@ -15,6 +15,7 @@ DEFAULT_TEXT_FONT = "Helvetica"
 DEFAULT_TEXT_SIZE = 10
 DEFAULT_BOLD_FONT = "Helvetica-Bold"
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
+DEFAULT_CSV_DIR = Path(__file__).resolve().parent / "csv"
 SIGNATURE_FONT_PATH = FONT_DIR / "GreatVibes-Regular.ttf"
 SIGNATURE_FONT_NAME = "GreatVibes"
 
@@ -44,6 +45,7 @@ class FontProfile:
     bold_path: Path | None = None
     regular_name: str = DEFAULT_TEXT_FONT
     bold_name: str = DEFAULT_BOLD_FONT
+    encoding: int | None = None
 
 
 FONT_PROFILES: dict[str, FontProfile] = {
@@ -77,6 +79,27 @@ FONT_PROFILES: dict[str, FontProfile] = {
         regular_name="NotoSans-Regular",
         bold_name="NotoSans-Bold",
     ),
+    "lo": FontProfile(
+        regular_path=FONT_DIR / "NotoSansLao-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSansLao-Bold.ttf",
+        regular_name="NotoSansLao-Regular",
+        bold_name="NotoSansLao-Bold",
+        encoding=0,
+    ),
+    "th": FontProfile(
+        regular_path=FONT_DIR / "NotoSansThai-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSansThai-Bold.ttf",
+        regular_name="NotoSansThai-Regular",
+        bold_name="NotoSansThai-Bold",
+        encoding=0,
+    ),
+    "km": FontProfile(
+        regular_path=FONT_DIR / "NotoSansKhmer-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSansKhmer-Bold.ttf",
+        regular_name="NotoSansKhmer-Regular",
+        bold_name="NotoSansKhmer-Bold",
+        encoding=0,
+    ),
 }
 
 CURRENT_TEXT_FONT = DEFAULT_TEXT_FONT
@@ -93,10 +116,13 @@ def configure_fonts_for_language(page: pm.Page, language: str) -> tuple[str, str
 
     try:
         if profile.regular_path and profile.regular_path.exists():
-            page.insert_font(
-                fontname=profile.regular_name,
-                fontfile=str(profile.regular_path),
-            )
+            kwargs = {
+                "fontname": profile.regular_name,
+                "fontfile": str(profile.regular_path),
+            }
+            if profile.encoding is not None:
+                kwargs["encoding"] = profile.encoding
+            page.insert_font(**kwargs)
             regular_name = profile.regular_name
         else:
             print(f"Warning: Regular font file not found for language '{language}'. Using default font.")
@@ -107,10 +133,13 @@ def configure_fonts_for_language(page: pm.Page, language: str) -> tuple[str, str
 
     try:
         if profile.bold_path and profile.bold_path.exists():
-            page.insert_font(
-                fontname=profile.bold_name,
-                fontfile=str(profile.bold_path),
-            )
+            kwargs = {
+                "fontname": profile.bold_name,
+                "fontfile": str(profile.bold_path),
+            }
+            if profile.encoding is not None:
+                kwargs["encoding"] = profile.encoding
+            page.insert_font(**kwargs)
             bold_name = profile.bold_name
         else:
             print(f"Warning: Bold font file not found for language '{language}'. Using default bold font.")
@@ -390,7 +419,21 @@ def collect_metadata(doc: pm.Document) -> list[dict[str, object]]:
 
 
 def export_metadata(metadata: list[dict[str, object]], pdf_path: str) -> None:
-    csv_path = Path(pdf_path).with_suffix(".csv")
+    pdf_path_obj = Path(pdf_path)
+
+    csv_root: Path
+    if pdf_path_obj.parent.name == "pdf":
+        csv_root = pdf_path_obj.parent.parent / "csv"
+    else:
+        csv_root = pdf_path_obj.parent / "csv"
+
+    try:
+        csv_root.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        csv_root = DEFAULT_CSV_DIR
+        csv_root.mkdir(parents=True, exist_ok=True)
+
+    csv_path = csv_root / f"{pdf_path_obj.stem}.csv"
     header = [
         "page",
         "name",

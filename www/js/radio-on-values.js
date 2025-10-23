@@ -176,6 +176,28 @@ export const radioOnValueMap = {
       "maybe": "Option_2"
     }
   },
+  "km": {
+    "injury_question1": {
+      "left": "Option",
+      "right": "Option_1",
+      "both": "Option_2"
+    },
+    "injury_question2": {
+      "yes": "Option",
+      "no": "Option_1",
+      "maybe": "Option_2"
+    },
+    "injury_question3": {
+      "yes": "Option",
+      "no": "Option_1",
+      "multiple": "Option_2"
+    },
+    "injury_question4": {
+      "yes": "Option",
+      "no": "Option_1",
+      "maybe": "Option_2"
+    }
+  },
   "ko": {
     "injury_question1": {
       "left": "Option",
@@ -195,6 +217,28 @@ export const radioOnValueMap = {
     "injury_question4": {
       "yes": "Option",
       "no": "Option_1",
+      "maybe": "Option_2"
+    }
+  },
+  "lo": {
+    "injury_question1": {
+      "left": "Option",
+      "right": "Option_1",
+      "both": "BOTH"
+    },
+    "injury_question2": {
+      "yes": "YES",
+      "no": "NO",
+      "maybe": "Option_2"
+    },
+    "injury_question3": {
+      "yes": "YES",
+      "no": "NO",
+      "multiple": "Option_2"
+    },
+    "injury_question4": {
+      "yes": "YES",
+      "no": "NO",
       "maybe": "Option_2"
     }
   },
@@ -221,6 +265,28 @@ export const radioOnValueMap = {
     }
   },
   "ru": {
+    "injury_question1": {
+      "left": "Option",
+      "right": "Option_1",
+      "both": "Option_2"
+    },
+    "injury_question2": {
+      "yes": "Option",
+      "no": "Option_1",
+      "maybe": "Option_2"
+    },
+    "injury_question3": {
+      "yes": "Option",
+      "no": "Option_1",
+      "multiple": "Option_2"
+    },
+    "injury_question4": {
+      "yes": "Option",
+      "no": "Option_1",
+      "maybe": "Option_2"
+    }
+  },
+  "th": {
     "injury_question1": {
       "left": "Option",
       "right": "Option_1",

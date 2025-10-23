@@ -3,7 +3,9 @@
 all: clean generate copy
 
 clean:
-	rm -f ./pdf/*
+	rm -f ./pdf/* || true
+	rm -f ./pdf/*.csv || true
+	rm -f ./csv/* || true
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 
 generate:

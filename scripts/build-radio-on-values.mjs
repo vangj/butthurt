@@ -11,7 +11,7 @@ import { radioGroupsDefinition } from "../www/js/radio-groups.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
-const csvDirectory = path.join(projectRoot, "python", "pdf");
+const csvDirectory = path.join(projectRoot, "python", "csv");
 const outputPath = path.join(projectRoot, "www", "js", "radio-on-values.js");
 const fallbackLanguage = "en";
 
@@ -117,7 +117,15 @@ const buildLanguageMapping = (entries) => {
 };
 
 const loadCsvData = async () => {
-  const files = await fs.readdir(csvDirectory);
+  let files = [];
+  try {
+    files = await fs.readdir(csvDirectory);
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return new Map();
+    }
+    throw error;
+  }
   const csvFiles = files
     .filter((file) => file.startsWith("blank_form_") && file.endsWith(".csv"))
     .sort((a, b) => a.localeCompare(b));
