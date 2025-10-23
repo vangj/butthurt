@@ -497,6 +497,173 @@ const updateSignatureFromName = (rawValue, { force = false } = {}) => {
 const truthyParams = new Set(["1", "true", "yes", "on"]);
 const falsyParams = new Set(["0", "false", "no", "off"]);
 
+const queryParamAliasInfo = (() => {
+  const aliasToCanonical = new Map();
+  const canonicalPreferred = new Map();
+  const canonicalAliases = new Map();
+
+  const registerAlias = (alias, canonical, { preferred = false } = {}) => {
+    if (!alias || !canonical) return;
+
+    aliasToCanonical.set(alias, canonical);
+    aliasToCanonical.set(alias.toLowerCase(), canonical);
+
+    if (!canonicalPreferred.has(canonical) || preferred) {
+      canonicalPreferred.set(canonical, alias);
+    }
+
+    let aliasSet = canonicalAliases.get(canonical);
+    if (!aliasSet) {
+      aliasSet = new Set();
+      canonicalAliases.set(canonical, aliasSet);
+    }
+    aliasSet.add(alias);
+  };
+
+  registerAlias("part_1_a", "part_i_a");
+  registerAlias("part_4_a", "part_vi_a");
+  registerAlias("part_4_b", "part_vi_b");
+
+  for (const suffix of ["a", "b", "c", "d", "e"]) {
+    registerAlias(`p1${suffix}`, `part_i_${suffix}`, { preferred: true });
+    registerAlias(`p2${suffix}`, `part_ii_${suffix}`, { preferred: true });
+  }
+
+  for (let index = 1; index <= 4; index += 1) {
+    registerAlias(`p3${index}`, `part_iii_${index}`, { preferred: true });
+  }
+
+  for (let index = 1; index <= 15; index += 1) {
+    registerAlias(`p4${index}`, `part_iv_${index}`, { preferred: true });
+  }
+
+  registerAlias("p4a", "part_vi_a");
+  registerAlias("p4b", "part_vi_b");
+  registerAlias("p5a", "part_vi_a", { preferred: true });
+  registerAlias("p5", "part_v", { preferred: true });
+
+  canonicalPreferred.forEach((preferredAlias, canonical) => {
+    aliasToCanonical.set(canonical, canonical);
+    aliasToCanonical.set(canonical.toLowerCase(), canonical);
+    let aliasSet = canonicalAliases.get(canonical);
+    if (!aliasSet) {
+      aliasSet = new Set();
+      canonicalAliases.set(canonical, aliasSet);
+    }
+    aliasSet.add(canonical);
+    aliasSet.add(preferredAlias);
+  });
+
+  return { aliasToCanonical, canonicalPreferred, canonicalAliases };
+})();
+
+const getCanonicalQueryFieldName = (key) => {
+  if (typeof key !== "string") {
+    return key;
+  }
+  return (
+    queryParamAliasInfo.aliasToCanonical.get(key) ??
+    queryParamAliasInfo.aliasToCanonical.get(key.toLowerCase()) ??
+    key
+  );
+};
+
+const serializableQueryFields = Array.from(
+  queryParamAliasInfo.canonicalPreferred.entries()
+).filter(([fieldName]) => fieldName !== "part_vi_b");
+
+const serializationAliasNames = new Set(["language"]);
+serializableQueryFields.forEach(([fieldName, preferredAlias]) => {
+  const aliasSet = queryParamAliasInfo.canonicalAliases.get(fieldName);
+  if (aliasSet) {
+    aliasSet.forEach((alias) => serializationAliasNames.add(alias));
+  }
+  serializationAliasNames.add(fieldName);
+  serializationAliasNames.add(preferredAlias);
+});
+
+const syncQueryStringWithForm = () => {
+  if (!htmlForm) return;
+
+  const params = new URLSearchParams(window.location.search);
+  serializationAliasNames.forEach((name) => params.delete(name));
+
+  for (const [fieldName, paramName] of serializableQueryFields) {
+    const element = htmlForm.elements.namedItem(fieldName);
+    if (!element) {
+      continue;
+    }
+
+    if (isRadioNodeList(element)) {
+      const value = typeof element.value === "string" ? element.value : "";
+      if (value) {
+        params.set(paramName, value);
+      }
+      continue;
+    }
+
+    if (element instanceof HTMLInputElement) {
+      if (element.type === "checkbox") {
+        if (element.checked) {
+          params.set(paramName, "1");
+        }
+        continue;
+      }
+
+      const value = element.value;
+      if (typeof value === "string" && value.trim()) {
+        params.set(paramName, value);
+      }
+      continue;
+    }
+
+    if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+      const value = element.value;
+      if (typeof value === "string" && value.trim()) {
+        params.set(paramName, value);
+      }
+    }
+  }
+
+  if (languageSelect && typeof languageSelect.value === "string") {
+    const languageValue = languageSelect.value.trim();
+    if (languageValue) {
+      params.set("language", languageValue);
+    }
+  }
+
+  const newQuery = params.toString();
+  const newRelativeUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ""}${window.location.hash ?? ""}`;
+  const currentRelativeUrl = `${window.location.pathname}${window.location.search}${window.location.hash ?? ""}`;
+  if (newRelativeUrl !== currentRelativeUrl) {
+    window.history.replaceState(null, "", newRelativeUrl);
+  }
+};
+
+const scheduleQueryStringSync = (() => {
+  let pendingHandle = null;
+  const canUseAnimationFrame =
+    typeof window !== "undefined" && typeof window.requestAnimationFrame === "function";
+
+  return () => {
+    if (pendingHandle !== null) {
+      return;
+    }
+
+    if (canUseAnimationFrame) {
+      pendingHandle = window.requestAnimationFrame(() => {
+        pendingHandle = null;
+        syncQueryStringWithForm();
+      });
+    } else {
+      pendingHandle = window.setTimeout(() => {
+        pendingHandle = null;
+        syncQueryStringWithForm();
+      }, 0);
+    }
+  };
+})();
+
 const setFieldValue = (fieldName, rawValue) => {
   if (!htmlForm) return false;
   if (typeof rawValue !== "string") return false;
@@ -558,34 +725,6 @@ const applyQueryParamsToForm = () => {
   const params = new URLSearchParams(window.location.search);
   if (!params.toString()) return;
 
-  const aliasMap = {
-    part_1_a: "part_i_a",
-    part_4_a: "part_vi_a",
-    part_4_b: "part_vi_b"
-  };
-
-  const registerAlias = (from, to) => {
-    aliasMap[from] = to;
-  };
-
-  for (const suffix of ["a", "b", "c", "d", "e"]) {
-    registerAlias(`p1${suffix}`, `part_i_${suffix}`);
-    registerAlias(`p2${suffix}`, `part_ii_${suffix}`);
-  }
-
-  for (let index = 1; index <= 4; index += 1) {
-    registerAlias(`p3${index}`, `part_iii_${index}`);
-  }
-
-  for (let index = 1; index <= 15; index += 1) {
-    registerAlias(`p4${index}`, `part_iv_${index}`);
-  }
-
-  registerAlias("p4a", "part_vi_a");
-  registerAlias("p4b", "part_vi_b");
-  registerAlias("p5a", "part_vi_a");
-  registerAlias("p5", "part_v");
-
   const seenValues = new Map();
   let hasExplicitSignature = false;
 
@@ -594,8 +733,7 @@ const applyQueryParamsToForm = () => {
     if (normalizedKey === "p5b") {
       return;
     }
-    const canonicalKey =
-      aliasMap[rawKey] ?? aliasMap[normalizedKey] ?? rawKey;
+    const canonicalKey = getCanonicalQueryFieldName(rawKey);
     seenValues.set(canonicalKey, value);
     if (canonicalKey === "part_vi_b") {
       hasExplicitSignature = true;
@@ -1204,3 +1342,15 @@ pdfButton?.addEventListener("click", () =>
 jpgButton?.addEventListener("click", () =>
   runWithLoadingState(jpgButton, handleJpgGeneration, "We couldn't generate the JPG. Please try again.")
 );
+
+const handleFormStateChange = () => {
+  scheduleQueryStringSync();
+};
+
+htmlForm?.addEventListener("input", handleFormStateChange);
+htmlForm?.addEventListener("change", handleFormStateChange);
+languageSelect?.addEventListener("change", handleFormStateChange);
+
+if (window.location.search) {
+  scheduleQueryStringSync();
+}
