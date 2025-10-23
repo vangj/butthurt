@@ -7,7 +7,7 @@ const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 const pdfJsModuleUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
 const pdfJsWorkerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
 // Languages whose PDFs rely on custom fonts that pdf.js cannot load inside a worker.
-const mainThreadRenderLanguages = new Set(["zh", "ja", "ko", "ru"]);
+const mainThreadRenderLanguages = new Set(["zh", "ja", "ko", "ru", "vi"]);
 const pdfJsStandardFontDataUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/standard_fonts/";
 const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
 let signatureFontReadyPromise = null;
@@ -29,7 +29,8 @@ const languageDisplayNames = {
   fil: "Filipino",
   it: "Italiano",
   "pt-br": "Português (Brasil)",
-  ru: "Русский"
+  ru: "Русский",
+  vi: "Tiếng Việt"
 };
 const loadingStateLabel = "Generating...";
 const sanitizePdfOptionName = (value) => {

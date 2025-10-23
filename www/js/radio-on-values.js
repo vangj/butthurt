@@ -242,6 +242,28 @@ export const radioOnValueMap = {
       "maybe": "Option_2"
     }
   },
+  "vi": {
+    "injury_question1": {
+      "left": "TR_I",
+      "right": "PH_I",
+      "both": "I"
+    },
+    "injury_question2": {
+      "yes": "C",
+      "no": "KO",
+      "maybe": "CH_C"
+    },
+    "injury_question3": {
+      "yes": "C",
+      "no": "KO",
+      "multiple": "NHI_U"
+    },
+    "injury_question4": {
+      "yes": "C",
+      "no": "KO",
+      "maybe": "CH_C"
+    }
+  },
   "zh": {
     "injury_question1": {
       "left": "Option",

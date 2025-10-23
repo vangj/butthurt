@@ -36,6 +36,7 @@ Currently supports the following languages
 - `it`: Italiano
 - `pt-br`: Português (Brasil)
 - `ru`: Русский
+- `vi`: Tiếng Việt
 
 ## License
 
