@@ -1268,6 +1268,23 @@ function gtagLog(name, category, label) {
   }
 }
 
+const socialLinkTracking = {
+  facebook: { hover: "sm_facebook_hover", click: "sm_facebook_click" },
+  x: { hover: "sm_x_hover", click: "sm_x_click" },
+  linkedin: { hover: "sm_linkedin_hover", click: "sm_linkedin_click" },
+  github: { hover: "sm_github_hover", click: "sm_github_click" }
+};
+
+document.querySelectorAll(".social-link[data-platform]").forEach((link) => {
+  const platform = link.dataset.platform;
+  const tracking = platform ? socialLinkTracking[platform] : null;
+  if (!tracking) {
+    return;
+  }
+  link.addEventListener("mouseenter", () => gtagLog(tracking.hover, "sm", "sharing"));
+  link.addEventListener("click", () => gtagLog(tracking.click, "sm", "sharing"));
+});
+
 async function handlePdfGeneration() {
   const filledBytes = await createFilledPdfBytes();
   const blob = new Blob([filledBytes], { type: "application/pdf" });
