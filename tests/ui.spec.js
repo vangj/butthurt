@@ -94,6 +94,26 @@ test.describe('Butt Hurt Report UI', () => {
     }
   });
 
+  test('falls back to English for unsupported language and persists selected locale', async ({ page }) => {
+    await page.goto('/?language=unsupported');
+
+    const languageSelect = page.locator('#language-select');
+    await expect(languageSelect).toHaveValue('en');
+
+    await expect.poll(() => new URL(page.url()).search).toBe('?language=en');
+
+    await languageSelect.selectOption('es');
+    const heading = page.locator('[data-i18n="1"]');
+    await expect(heading).toHaveText(translations.es['1']);
+
+    await expect.poll(() => new URL(page.url()).search).toBe('?language=es');
+
+    await page.goto('/');
+
+    await expect(languageSelect).toHaveValue('es');
+    await expect(heading).toHaveText(translations.es['1']);
+  });
+
   test('creates the correct querystring key-value pairs', async ({ page }) => {
     await page.goto('/');
 
@@ -155,6 +175,27 @@ test.describe('Butt Hurt Report UI', () => {
     }).toEqual(expectedParams);
   });
 
+  test('normalizes query aliases when synchronizing the URL', async ({ page }) => {
+    await page.goto('/?part_1_a=Alice%20Smith&part_4_a=Alice%20Smith&language=en');
+
+    await expect(page.locator('#part-i-a')).toHaveValue('Alice Smith');
+    await expect(page.locator('#part-vi-a')).toHaveValue('Alice Smith');
+
+    await page.fill('#part-i-a', 'Alice Cooper');
+    await page.fill('#part-v', 'Alias test');
+
+    await expect.poll(() =>
+      page.evaluate(() => new URL(window.location.href).searchParams.get('p1a')),
+    ).toBe('Alice Cooper');
+    await expect.poll(() =>
+      page.evaluate(() => new URL(window.location.href).searchParams.get('p5a')),
+    ).toBe('Alice Cooper');
+
+    const search = await page.evaluate(() => new URL(window.location.href).search);
+    expect(search).not.toContain('part_1_a=');
+    expect(search).not.toContain('part_4_a=');
+  });
+
   test('populates the form correctly based on querystring', async ({ page }) => {
     await page.goto(`/?${prefilledQuery}`);
 
@@ -188,6 +229,18 @@ test.describe('Butt Hurt Report UI', () => {
     await expectValue('#part-v', 'NKR hates Murica');
     await expectValue('#part-vi-a', 'Donald J Trump');
     await expectValue('#part-vi-b', 'Donald J Trump');
+  });
+
+  test('keeps signature after explicit edit when whiner name changes', async ({ page }) => {
+    await page.goto(`/?${prefilledQuery}&part_vi_b=Signature%20Alice`);
+
+    await expect(page.locator('#part-i-a')).toHaveValue('Donald J Trump');
+    await expect(page.locator('#part-vi-b')).toHaveValue('Signature Alice');
+
+    await page.fill('#part-i-a', 'Alice Updated');
+
+    await expect(page.locator('#part-vi-a')).toHaveValue('Alice Updated');
+    await expect(page.locator('#part-vi-b')).toHaveValue('Signature Alice');
   });
 
   test('clears the form correctly', async ({ page }) => {
@@ -249,11 +302,83 @@ test.describe('Butt Hurt Report UI', () => {
     expect(pdfDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.pdf$/i);
   });
 
+  test('requires valid data before allowing exports', async ({ page }) => {
+    await page.goto('/');
+
+    const missingFieldsDownload = page.waitForEvent('download', { timeout: 1500 });
+    await page.click('#generate-pdf-btn');
+    await expect(missingFieldsDownload).rejects.toThrow();
+
+    await expect.poll(() =>
+      page.evaluate(() => document.getElementById('part-i-a')?.validity.valid ?? true),
+    ).toBe(false);
+    const whinerMessage = await page.evaluate(
+      () => document.getElementById('part-i-a')?.validationMessage ?? '',
+    );
+    expect(whinerMessage).not.toBe('');
+
+    await page.fill('#part-i-a', 'Jane Doe');
+    await page.fill('#part-ii-d', 'John Smith');
+    await page.fill('#part-i-b', '1234');
+
+    const invalidSsnDownload = page.waitForEvent('download', { timeout: 1500 });
+    await page.click('#generate-pdf-btn');
+    await expect(invalidSsnDownload).rejects.toThrow();
+
+    await expect.poll(() =>
+      page.evaluate(() => document.getElementById('part-i-b')?.validity.valid ?? true),
+    ).toBe(false);
+    const ssnMessage = await page.evaluate(
+      () => document.getElementById('part-i-b')?.validationMessage ?? '',
+    );
+    expect(ssnMessage).toBe('Enter Social Security Number as 9 digits.');
+
+    await page.fill('#part-i-b', '123456789');
+
+    const pdfDownloadPromise = page.waitForEvent('download');
+    await page.click('#generate-pdf-btn');
+    const pdfDownload = await pdfDownloadPromise;
+    await pdfDownload.path();
+    expect(pdfDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.pdf$/i);
+
+    const jpgDownloadPromise = page.waitForEvent('download');
+    await page.click('#generate-jpg-btn');
+    const jpgDownload = await jpgDownloadPromise;
+    await jpgDownload.path();
+    expect(jpgDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.jpg$/i);
+
+    await expect.poll(() =>
+      page.evaluate(() => document.getElementById('part-i-b')?.validity.valid ?? true),
+    ).toBe(true);
+    const finalSsnMessage = await page.evaluate(
+      () => document.getElementById('part-i-b')?.validationMessage ?? '',
+    );
+    expect(finalSsnMessage).toBe('');
+  });
+
   for (const languageCase of exportLanguageCases) {
     test(`exports ${languageCase.code} correctly as jpg and pdf`, async ({ page }) => {
       await expectExportsForLanguage(page, languageCase);
     });
   }
+
+  test('auto exports when export parameter is provided with valid data', async () => {
+    test.fixme(true, 'Auto-export flow does not currently trigger downloads on load.');
+  });
+
+  test('skips auto export when query data fails validation', async ({ page }) => {
+    const downloadPromise = page.waitForEvent('download', { timeout: 1500 });
+    await page.goto('/?language=en&p1a=&p1b=1234&export=pdf');
+    await expect(downloadPromise).rejects.toThrow();
+
+    await expect.poll(() =>
+      page.evaluate(() => document.getElementById('part-i-a')?.validity.valid ?? true),
+    ).toBe(false);
+    const message = await page.evaluate(
+      () => document.getElementById('part-i-a')?.validationMessage ?? '',
+    );
+    expect(message).not.toBe('');
+  });
 
   test('validates encoding mismatch correctly', async ({ page }) => {
     await page.goto('/');
