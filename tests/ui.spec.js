@@ -255,7 +255,7 @@ test.describe('Butt Hurt Report UI', () => {
     });
   }
 
-  test('should validate encoding mismatch correctly', async ({ page }) => {
+  test('validates encoding mismatch correctly', async ({ page }) => {
     await page.goto('/');
 
     await page.locator('#language-select').selectOption('en');
