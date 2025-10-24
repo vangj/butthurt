@@ -362,8 +362,18 @@ test.describe('Butt Hurt Report UI', () => {
     });
   }
 
-  test('auto exports when export parameter is provided with valid data', async () => {
-    test.fixme(true, 'Auto-export flow does not currently trigger downloads on load.');
+  test('auto exports when export parameter is provided with valid data', async ({ page }) => {
+    const pdfDownloadPromise = page.waitForEvent('download');
+    await page.goto(`/?${prefilledQuery}&export=pdf`);
+    const pdfDownload = await pdfDownloadPromise;
+    await pdfDownload.path();
+    expect(pdfDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.pdf$/i);
+
+    const jpgDownloadPromise = page.waitForEvent('download');
+    await page.goto(`/?${prefilledQuery}&export=jpg`);
+    const jpgDownload = await jpgDownloadPromise;
+    await jpgDownload.path();
+    expect(jpgDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.jpg$/i);
   });
 
   test('skips auto export when query data fails validation', async ({ page }) => {
