@@ -1,6 +1,9 @@
-.PHONY: all rebuild clean lfs-pull
+.PHONY: all test rebuild clean lfs-pull
 
-all: lfs-pull clean build
+all: lfs-pull test clean build
+
+test:
+	npm run test:e2e
 
 build:
 	@$(MAKE) -C python all
