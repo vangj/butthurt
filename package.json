@@ -6,7 +6,10 @@
   "scripts": {
     "clean": "rm -rf www-optimized",
     "build": "node build.mjs",
-    "build:radio-map": "node scripts/build-radio-on-values.mjs"
+    "build:radio-map": "node scripts/build-radio-on-values.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui"
   },
   "repository": {
     "type": "git",
@@ -20,11 +23,13 @@
   },
   "homepage": "https://github.com/vangj/butthurt#readme",
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "cssnano": "^7.1.1",
     "esbuild": "^0.25.11",
     "fast-glob": "^3.3.3",
     "fs-extra": "^11.3.2",
     "html-minifier-terser": "^7.2.0",
+    "http-server": "^14.1.1",
     "postcss": "^8.5.6"
   }
 }

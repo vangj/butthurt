@@ -6,3 +6,6 @@ blank_form.xml
 blank_form.csv
 node_modules/
 www-optimized/
+test-results/
+playwright-report/
+.playwright/

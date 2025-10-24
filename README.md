@@ -20,6 +20,15 @@ You need the following.
 
 Then simply type in `make` to build the optimized distribution in `www-optimized`.
 
+## UI testing
+
+The project uses Playwright for end-to-end checks of the rendered form.
+
+- First-time setup: `npx playwright install`
+- Run the full suite headlessly: `npm run test:e2e`
+- Debug a single browser run: `npm run test:e2e -- --project=chromium`
+- Launch the Playwright test runner UI: `npm run test:e2e:ui`
+
 ## i18n
 
 Currently supports the following languages
