@@ -25,6 +25,9 @@ MIN_TEXT_WIDGET_BOTTOM_MARGIN = 10
 
 FOOTER_LINK_URL = "https://butthurt.gooblygock.com/"
 FOOTER_LINK_HEIGHT = 18.0
+FOOTER_ICON_SIZE = 16.0
+FOOTER_ICON_GAP = 6.0
+FOOTER_ICON_PATH = Path(__file__).resolve().parent.parent / "www" / "images" / "favicon-32x32.png"
 
 PART_ROMANS = {
     1: "I",
@@ -1455,14 +1458,37 @@ def build_form(
         link_y0 = min(bottom + 6.0, page.rect.height - FOOTER_LINK_HEIGHT - 2.0)
         link_rect = pm.Rect(left, link_y0, right, link_y0 + FOOTER_LINK_HEIGHT)
         text_rect = pm.Rect(link_rect.x0 + 4, link_rect.y0, link_rect.x1 - 4, link_rect.y1)
-        insert_center_text(
+        footer_font_size = 8.0
+        insert_text(
             page,
-            text_rect,
+            pm.Rect(text_rect.x0, text_rect.y0 + (link_rect.height - footer_font_size) / 2 - 1.0, text_rect.x1, text_rect.y1),
             FOOTER_LINK_URL,
             font=CURRENT_TEXT_FONT,
-            size=8,
+            size=footer_font_size,
             color=BLACK,
+            align=pm.TEXT_ALIGN_CENTER,
         )
+
+        if FOOTER_ICON_PATH.exists():
+            icon_size = min(FOOTER_ICON_SIZE, max(link_rect.height - 4.0, 0.0))
+            text_width = measure_text_width(FOOTER_LINK_URL, CURRENT_TEXT_FONT, footer_font_size)
+            available_width = max(text_rect.width, 0.0)
+            if icon_size > 0 and available_width > 0:
+                effective_text_width = min(text_width, available_width)
+                text_left = text_rect.x0 + (available_width - effective_text_width) / 2
+                icon_x1 = text_left - FOOTER_ICON_GAP
+                icon_x0 = icon_x1 - icon_size
+                min_x0 = link_rect.x0 + 2.0
+                if icon_x0 < min_x0:
+                    icon_x0 = min_x0
+                    icon_x1 = icon_x0 + icon_size
+                if icon_x1 <= link_rect.x1 - 2.0:
+                    icon_y0 = link_rect.y0 + (link_rect.height - icon_size) / 2
+                    icon_y1 = icon_y0 + icon_size
+                    if icon_y1 <= link_rect.y1:
+                        icon_rect = pm.Rect(icon_x0, icon_y0, icon_x1, icon_y1)
+                        page.insert_image(icon_rect, filename=str(FOOTER_ICON_PATH))
+
         page.insert_link(
             {
                 "kind": pm.LINK_URI,
