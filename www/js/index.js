@@ -47,6 +47,23 @@ const languageDisplayNames = {
   lo: "ລາວ",
   th: "ไทย"
 };
+const bootstrapGlobal = typeof window !== "undefined" ? window.bootstrap : undefined;
+const BootstrapTooltip = bootstrapGlobal?.Tooltip ?? null;
+const encodingMismatchMessage = "Encoding mismatch. Switch the language or remove unsupported characters.";
+const winAnsiAllowedCharacters = /^[\u0000-\u024F\u02C6\u02DC\u2013-\u2014\u2018-\u201A\u201C-\u201E\u2020-\u2022\u2026\u2030\u2039-\u203A\u20AC\u2122]*$/u;
+const encodingTooltipInstances = new WeakMap();
+const encodingValidationTargets = new Set();
+const textualEncodingInputTypes = new Set(["text", "search", "email", "tel", "url", "password", "number"]);
+const createTooltipInstance = (element, options) => {
+  if (BootstrapTooltip) {
+    return new BootstrapTooltip(element, options);
+  }
+  return {
+    setContent() {},
+    show() {},
+    hide() {}
+  };
+};
 const loadingStateLabel = "Generating...";
 const sanitizePdfOptionName = (value) => {
   if (typeof value !== "string" || !value.trim()) {
@@ -115,6 +132,194 @@ const loadLanguageFontBytes = async (language) => {
     console.warn(`Unable to load font for language ${language}:`, error);
     return null;
   }
+};
+
+const sanitizeValueForEncodingCheck = (value) => {
+  if (typeof value !== "string" || !value) {
+    return "";
+  }
+  return value.replace(/[\u0000-\u001f\u007f]/g, "");
+};
+
+const languageUsesWinAnsiEncoding = (language) => {
+  const normalized = normalizeLanguageCode(language) ?? fallbackLanguage;
+  return !getLanguageFontPath(normalized);
+};
+
+const hasEncodingMismatchForValue = (value, language) => {
+  if (!value) {
+    return false;
+  }
+  if (!languageUsesWinAnsiEncoding(language)) {
+    return false;
+  }
+  const sanitized = sanitizeValueForEncodingCheck(value);
+  if (!sanitized) {
+    return false;
+  }
+  return !winAnsiAllowedCharacters.test(sanitized);
+};
+
+const ensureEncodingTooltip = (element) => {
+  let instance = encodingTooltipInstances.get(element);
+  if (!instance) {
+    instance = createTooltipInstance(element, {
+      title: encodingMismatchMessage,
+      trigger: "manual",
+      placement: "top",
+      customClass: "encoding-mismatch-tooltip"
+    });
+    encodingTooltipInstances.set(element, instance);
+  }
+  return instance;
+};
+
+const hideEncodingTooltip = (element) => {
+  const instance = encodingTooltipInstances.get(element);
+  if (instance) {
+    instance.hide();
+  }
+};
+
+const markEncodingMessageApplied = (element, applied) => {
+  if (!element?.dataset) {
+    return;
+  }
+  if (applied) {
+    element.dataset.encodingMessageApplied = "true";
+  } else {
+    delete element.dataset.encodingMessageApplied;
+  }
+};
+
+const hasEncodingMessageApplied = (element) =>
+  element?.dataset?.encodingMessageApplied === "true";
+
+const hasBaseCustomValidityMessage = (element) =>
+  element?.dataset?.baseValidityActive === "true";
+
+const setEncodingMismatchState = (element, hasMismatch, { showTooltip = false } = {}) => {
+  if (!element) {
+    return;
+  }
+
+  if (hasMismatch) {
+    element.classList.add("is-invalid");
+    element.setAttribute("aria-invalid", "true");
+    const tooltip = ensureEncodingTooltip(element);
+    tooltip.setContent({ ".tooltip-inner": encodingMismatchMessage });
+    if (showTooltip && document.activeElement === element) {
+      tooltip.show();
+    } else {
+      tooltip.hide();
+    }
+  } else {
+    element.classList.remove("is-invalid");
+    element.removeAttribute("aria-invalid");
+    hideEncodingTooltip(element);
+  }
+};
+
+const shouldValidateEncodingForElement = (element) => {
+  if (!element) {
+    return false;
+  }
+
+  if (element instanceof HTMLTextAreaElement) {
+    return true;
+  }
+
+  if (element instanceof HTMLInputElement) {
+    const type = (element.getAttribute("type") || "text").toLowerCase();
+    if (
+      type === "hidden" ||
+      type === "radio" ||
+      type === "checkbox" ||
+      type === "file" ||
+      type === "submit" ||
+      type === "reset" ||
+      type === "button" ||
+      type === "range" ||
+      type === "color" ||
+      type === "date" ||
+      type === "datetime-local" ||
+      type === "month" ||
+      type === "time" ||
+      type === "week"
+    ) {
+      return false;
+    }
+    return textualEncodingInputTypes.has(type);
+  }
+
+  return false;
+};
+
+const applyEncodingValidationToElement = (element, { showTooltip = false } = {}) => {
+  if (!element) {
+    return { hasMismatch: false };
+  }
+
+  const value = typeof element.value === "string" ? element.value : "";
+  const hasMismatch = hasEncodingMismatchForValue(value, activeLanguage);
+  const baseMessageActive = hasBaseCustomValidityMessage(element);
+
+  setEncodingMismatchState(element, hasMismatch, { showTooltip });
+
+  if (hasMismatch) {
+    if (!baseMessageActive && element.validationMessage !== encodingMismatchMessage) {
+      element.setCustomValidity(encodingMismatchMessage);
+    }
+    markEncodingMessageApplied(element, true);
+  } else {
+    if (!baseMessageActive && hasEncodingMessageApplied(element)) {
+      element.setCustomValidity("");
+    }
+    markEncodingMessageApplied(element, false);
+  }
+
+  return { hasMismatch };
+};
+
+const applyEncodingValidationToAll = ({ showTooltip = false } = {}) => {
+  const elements = Array.from(encodingValidationTargets);
+  for (const element of elements) {
+    if (!document.contains(element)) {
+      encodingValidationTargets.delete(element);
+      continue;
+    }
+    applyEncodingValidationToElement(element, { showTooltip });
+  }
+};
+
+const refreshEncodingValidation = ({ showTooltip = false } = {}) =>
+  applyEncodingValidationToAll({ showTooltip });
+
+const registerEncodingValidationTargets = () => {
+  if (!htmlForm) {
+    return;
+  }
+
+  const candidates = htmlForm.querySelectorAll("input, textarea");
+  candidates.forEach((element) => {
+    if (!shouldValidateEncodingForElement(element)) {
+      return;
+    }
+    if (encodingValidationTargets.has(element)) {
+      return;
+    }
+    encodingValidationTargets.add(element);
+    element.addEventListener("input", () => {
+      applyEncodingValidationToElement(element, { showTooltip: true });
+    });
+    element.addEventListener("change", () => {
+      applyEncodingValidationToElement(element, { showTooltip: false });
+    });
+    element.addEventListener("blur", () => {
+      hideEncodingTooltip(element);
+    });
+    applyEncodingValidationToElement(element);
+  });
 };
 
 const queryLanguageInfo = (() => {
@@ -248,6 +453,7 @@ const applyTranslations = (lang, { skipStorage = false } = {}) => {
   if (languageSelect && languageSelect.value !== normalized) {
     languageSelect.value = normalized;
   }
+  refreshEncodingValidation({ showTooltip: false });
 };
 
 const populateLanguageSelect = (initialLanguage) => {
@@ -542,10 +748,13 @@ const jpgButton = document.getElementById("generate-jpg-btn");
 const isRadioNodeList = (element) =>
   typeof RadioNodeList !== "undefined" && element instanceof RadioNodeList;
 
+registerEncodingValidationTargets();
+
 const syncFieldValue = (source, target) => {
   if (!source || !target) return;
   if (target.value !== source.value) {
     target.value = source.value;
+    applyEncodingValidationToElement(target, { showTooltip: false });
   }
 };
 
@@ -561,10 +770,12 @@ const updateSignatureFromName = (rawValue, { force = false } = {}) => {
   if (!trimmed) {
     signatureInput.value = "";
     delete signatureInput.dataset.signatureSource;
+    applyEncodingValidationToElement(signatureInput, { showTooltip: false });
     return;
   }
   signatureInput.value = trimmed;
   signatureInput.dataset.signatureSource = "derived";
+  applyEncodingValidationToElement(signatureInput, { showTooltip: false });
 };
 
 const truthyParams = new Set(["1", "true", "yes", "on"]);
@@ -778,6 +989,9 @@ const setFieldValue = (fieldName, rawValue) => {
     }
 
     element.value = rawValue;
+    if (shouldValidateEncodingForElement(element)) {
+      applyEncodingValidationToElement(element, { showTooltip: false });
+    }
     return true;
   }
 
@@ -786,6 +1000,9 @@ const setFieldValue = (fieldName, rawValue) => {
     element instanceof HTMLSelectElement
   ) {
     element.value = rawValue;
+    if (shouldValidateEncodingForElement(element)) {
+      applyEncodingValidationToElement(element, { showTooltip: false });
+    }
     return true;
   }
 
@@ -849,6 +1066,7 @@ const applyQueryParamsToForm = () => {
 };
 
 applyQueryParamsToForm();
+refreshEncodingValidation({ showTooltip: false });
 doExport();
 
 whinerNameInput?.addEventListener("input", () => {
@@ -871,12 +1089,25 @@ if (whinerNameInput && authWhinerNameInput) {
 }
 updateSignatureFromName(authWhinerNameInput?.value ?? "");
 
+const setBaseCustomValidity = (element, message) => {
+  if (!element) {
+    return;
+  }
+  element.setCustomValidity(message);
+  if (message) {
+    element.dataset.baseValidityActive = "true";
+  } else {
+    delete element.dataset.baseValidityActive;
+  }
+};
+
 function validateForm() {
   if (!htmlForm) return true;
 
   if (whinerNameInput) {
     const whinerValue = whinerNameInput.value.trim();
-    whinerNameInput.setCustomValidity(
+    setBaseCustomValidity(
+      whinerNameInput,
       whinerValue ? "" : "Please enter the whiner's name."
     );
   }
@@ -892,12 +1123,13 @@ function validateForm() {
       authMessage = "Printed name must match whiner's name.";
     }
 
-    authWhinerNameInput.setCustomValidity(authMessage);
+    setBaseCustomValidity(authWhinerNameInput, authMessage);
   }
 
   if (offenderInput) {
     const offenderValue = offenderInput.value.trim();
-    offenderInput.setCustomValidity(
+    setBaseCustomValidity(
+      offenderInput,
       offenderValue
         ? ""
         : "Please enter the name of the person who hurt your feelings."
@@ -907,15 +1139,18 @@ function validateForm() {
   if (ssnInput) {
     const ssnValue = ssnInput.value.trim();
     if (!ssnValue) {
-      ssnInput.setCustomValidity("");
+      setBaseCustomValidity(ssnInput, "");
     } else if (/^[0-9]{9}$/.test(ssnValue)) {
-      ssnInput.setCustomValidity("");
+      setBaseCustomValidity(ssnInput, "");
     } else {
-      ssnInput.setCustomValidity(
+      setBaseCustomValidity(
+        ssnInput,
         "Enter Social Security Number as 9 digits."
       );
     }
   }
+
+  applyEncodingValidationToAll({ showTooltip: false });
 
   return htmlForm.reportValidity();
 }
