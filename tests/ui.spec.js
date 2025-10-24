@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { supportedLanguages, translations } from '../www/js/i18n.js';
 
 const escapeForRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const prefilledQuery =
+  'p1a=Donald%20J%20Trump&p1b=555116969&p1c=2025-10-18&p1d=White%20House&p1e=President&p2a=2025-10-19&p2b=09:00&p2c=No%20Kings%20Rally&p2d=Americans&p2e=MAGA&p31=both&p32=yes&p33=multiple&p34=yes&p41=1&p42=1&p43=1&p44=1&p45=1&p46=1&p47=1&p48=1&p49=1&p410=1&p411=1&p412=1&p413=1&p414=1&p415=1&p5=NKR%20hates%20Murica&language=en';
 
 test.describe('Butt Hurt Report UI', () => {
   test('renders the landing page', async ({ page }) => {
@@ -110,9 +112,7 @@ test.describe('Butt Hurt Report UI', () => {
   });
 
   test('populates the form correctly based on querystring', async ({ page }) => {
-    const query =
-      'p1a=Donald%20J%20Trump&p1b=555116969&p1c=2025-10-18&p1d=White%20House&p1e=President&p2a=2025-10-19&p2b=09:00&p2c=No%20Kings%20Rally&p2d=Americans&p2e=MAGA&p31=both&p32=yes&p33=multiple&p34=yes&p41=1&p42=1&p43=1&p44=1&p45=1&p46=1&p47=1&p48=1&p49=1&p410=1&p411=1&p412=1&p413=1&p414=1&p415=1&p5=NKR%20hates%20Murica&language=en';
-    await page.goto(`/?${query}`);
+    await page.goto(`/?${prefilledQuery}`);
 
     const expectValue = async (selector, value) => {
       await expect(page.locator(selector)).toHaveValue(value);
@@ -147,9 +147,7 @@ test.describe('Butt Hurt Report UI', () => {
   });
 
   test('clears the form correctly', async ({ page }) => {
-    const query =
-      'p1a=Donald%20J%20Trump&p1b=555116969&p1c=2025-10-18&p1d=White%20House&p1e=President&p2a=2025-10-19&p2b=09:00&p2c=No%20Kings%20Rally&p2d=Americans&p2e=MAGA&p31=both&p32=yes&p33=multiple&p34=yes&p41=1&p42=1&p43=1&p44=1&p45=1&p46=1&p47=1&p48=1&p49=1&p410=1&p411=1&p412=1&p413=1&p414=1&p415=1&p5=NKR%20hates%20Murica&language=en';
-    await page.goto(`/?${query}`);
+    await page.goto(`/?${prefilledQuery}`);
 
     await page.click('#reset-form-btn');
 
@@ -185,5 +183,25 @@ test.describe('Butt Hurt Report UI', () => {
     await expectEmpty('#part-vi-b');
 
     await expect.poll(() => new URL(page.url()).search).toBe('?language=en');
+  });
+
+  test('exports a jpg and pdf correctly', async ({ page }) => {
+    await page.goto(`/?${prefilledQuery}`);
+
+    const [jpgDownload] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#generate-jpg-btn'),
+    ]);
+
+    await jpgDownload.path();
+    expect(jpgDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.jpg$/i);
+
+    const [pdfDownload] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#generate-pdf-btn'),
+    ]);
+
+    await pdfDownload.path();
+    expect(pdfDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.pdf$/i);
   });
 });
