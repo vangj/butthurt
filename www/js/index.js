@@ -198,6 +198,9 @@ const hasEncodingMessageApplied = (element) =>
 const hasBaseCustomValidityMessage = (element) =>
   element?.dataset?.baseValidityActive === "true";
 
+const isEncodingMismatchActive = (element) =>
+  element?.dataset?.encodingMismatchActive === "true";
+
 const setEncodingMismatchState = (element, hasMismatch, { showTooltip = false } = {}) => {
   if (!element) {
     return;
@@ -206,9 +209,16 @@ const setEncodingMismatchState = (element, hasMismatch, { showTooltip = false } 
   if (hasMismatch) {
     element.classList.add("is-invalid");
     element.setAttribute("aria-invalid", "true");
+    if (element.dataset) {
+      element.dataset.encodingMismatchActive = "true";
+    }
     const tooltip = ensureEncodingTooltip(element);
     tooltip.setContent({ ".tooltip-inner": encodingMismatchMessage });
-    if (showTooltip && document.activeElement === element) {
+    const elementIsHovered =
+      typeof element.matches === "function" ? element.matches(":hover") : false;
+    const shouldShowTooltip =
+      showTooltip && (document.activeElement === element || elementIsHovered);
+    if (shouldShowTooltip) {
       tooltip.show();
     } else {
       tooltip.hide();
@@ -216,6 +226,9 @@ const setEncodingMismatchState = (element, hasMismatch, { showTooltip = false } 
   } else {
     element.classList.remove("is-invalid");
     element.removeAttribute("aria-invalid");
+    if (element.dataset) {
+      delete element.dataset.encodingMismatchActive;
+    }
     hideEncodingTooltip(element);
   }
 };
@@ -314,6 +327,19 @@ const registerEncodingValidationTargets = () => {
     });
     element.addEventListener("change", () => {
       applyEncodingValidationToElement(element, { showTooltip: false });
+    });
+    element.addEventListener("focus", () => {
+      applyEncodingValidationToElement(element, { showTooltip: true });
+    });
+    element.addEventListener("mouseenter", () => {
+      if (document.activeElement !== element) {
+        applyEncodingValidationToElement(element, { showTooltip: true });
+      }
+    });
+    element.addEventListener("mouseleave", () => {
+      if (document.activeElement !== element) {
+        hideEncodingTooltip(element);
+      }
     });
     element.addEventListener("blur", () => {
       hideEncodingTooltip(element);
