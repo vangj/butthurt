@@ -48,6 +48,18 @@ class FontProfile:
     encoding: int | None = None
 
 
+@dataclass(frozen=True)
+class LayoutSpec:
+    title_font_size: float = 30.0
+    section_header_font_size: float = 10.0
+    label_font_size: float = 8.0
+    body_font_size: float = 8.0
+    field_label_font_size: float = 7.0
+    question_font_size: float = 8.0
+    option_font_size: float = 8.0
+    checkbox_label_width: float = 150.0
+
+
 FONT_PROFILES: dict[str, FontProfile] = {
     "zh": FontProfile(
         regular_path=FONT_DIR / "SourceHanSansSC-Regular.otf",
@@ -104,15 +116,43 @@ FONT_PROFILES: dict[str, FontProfile] = {
 
 CURRENT_TEXT_FONT = DEFAULT_TEXT_FONT
 CURRENT_BOLD_FONT = DEFAULT_BOLD_FONT
+DEFAULT_LAYOUT = LayoutSpec()
+LAYOUT_OVERRIDES: dict[str, LayoutSpec] = {
+    "lo": LayoutSpec(
+        title_font_size=22.0,
+        section_header_font_size=9.0,
+        label_font_size=7.0,
+        body_font_size=7.0,
+        field_label_font_size=6.5,
+        question_font_size=7.0,
+        option_font_size=7.0,
+        checkbox_label_width=170.0,
+    ),
+    "th": LayoutSpec(
+        title_font_size=22.0,
+        section_header_font_size=9.0,
+        label_font_size=7.0,
+        body_font_size=7.0,
+        field_label_font_size=6.5,
+        question_font_size=7.0,
+        option_font_size=7.0,
+        checkbox_label_width=170.0,
+    ),
+}
+CURRENT_LAYOUT = DEFAULT_LAYOUT
 
 
-def configure_fonts_for_language(page: pm.Page, language: str) -> tuple[str, str]:
+def configure_fonts_for_language(
+    page: pm.Page, language: str
+) -> tuple[str, str, int | None, int | None]:
     profile = FONT_PROFILES.get(language)
     if not profile:
-        return DEFAULT_TEXT_FONT, DEFAULT_BOLD_FONT
+        return DEFAULT_TEXT_FONT, DEFAULT_BOLD_FONT, None, None
 
     regular_name = DEFAULT_TEXT_FONT
     bold_name = DEFAULT_BOLD_FONT
+    regular_xref: int | None = None
+    bold_xref: int | None = None
 
     try:
         if profile.regular_path and profile.regular_path.exists():
@@ -122,7 +162,7 @@ def configure_fonts_for_language(page: pm.Page, language: str) -> tuple[str, str
             }
             if profile.encoding is not None:
                 kwargs["encoding"] = profile.encoding
-            page.insert_font(**kwargs)
+            regular_xref = page.insert_font(**kwargs)
             regular_name = profile.regular_name
         else:
             print(f"Warning: Regular font file not found for language '{language}'. Using default font.")
@@ -139,7 +179,7 @@ def configure_fonts_for_language(page: pm.Page, language: str) -> tuple[str, str
             }
             if profile.encoding is not None:
                 kwargs["encoding"] = profile.encoding
-            page.insert_font(**kwargs)
+            bold_xref = page.insert_font(**kwargs)
             bold_name = profile.bold_name
         else:
             print(f"Warning: Bold font file not found for language '{language}'. Using default bold font.")
@@ -148,7 +188,7 @@ def configure_fonts_for_language(page: pm.Page, language: str) -> tuple[str, str
         print(f"Warning: Failed to load bold font for language '{language}': {exc}")
         bold_name = DEFAULT_BOLD_FONT
 
-    return regular_name, bold_name
+    return regular_name, bold_name, regular_xref, bold_xref
 
 I18N_KEYS: dict[str, str] = {
     "title": "1",
@@ -495,6 +535,36 @@ def _format_ref_array(refs: list[str]) -> str:
     return f"[{' '.join(refs)}]" if refs else "[]"
 
 
+def _extract_font_entries(dict_str: str) -> dict[str, str]:
+    if not dict_str:
+        return {}
+    match = re.search(r"/Font\s*<<(.*?)>>", dict_str, re.DOTALL)
+    if not match:
+        return {}
+    content = match.group(1)
+    entries: dict[str, str] = {}
+    for name, value in re.findall(r"/([A-Za-z0-9_.\-]+)\s+(/[^/\s]+|\d+\s+\d+\s+R)", content):
+        entries[name] = value.strip()
+    return entries
+
+
+def _strip_outer_dictionary(dict_str: str) -> str:
+    dict_str = dict_str.strip()
+    if dict_str.startswith("<<") and dict_str.endswith(">>"):
+        dict_str = dict_str[2:-2].strip()
+    return dict_str
+
+
+def _rewrite_da_font(da_str: str, font_name: str) -> str | None:
+    pattern = re.compile(r"/([^\s]+)\s+([0-9.]+)\s+Tf")
+    match = pattern.search(da_str)
+    if not match:
+        return None
+    size = match.group(2)
+    start, end = match.span()
+    return f"{da_str[:start]}/{font_name} {size} Tf{da_str[end:]}"
+
+
 def _replace_on_state_in_dict(ap_dict_str: str, new_state: str) -> tuple[str, bool]:
     match = re.search(r"(/N\s*<<)(.*?)(>>)", ap_dict_str, re.DOTALL)
     if not match:
@@ -743,7 +813,7 @@ def draw_section_header(page: pm.Page, left: float, right: float, y: float, text
         page,
         pm.Rect(rect.x0 + 6, rect.y0 + 4, rect.x1 - 6, rect.y1 - 4),
         text,
-        size=10,
+        size=CURRENT_LAYOUT.section_header_font_size,
     )
     return rect.y1
 
@@ -758,6 +828,8 @@ def draw_labeled_box(
     line_height: float = 22,
     row_gap: float | None = None,
 ) -> float:
+    label_font_size = CURRENT_LAYOUT.label_font_size
+    body_font_size = CURRENT_LAYOUT.body_font_size
     gap = row_gap if row_gap is not None else line_height
     height = line_height + max(0, (len(rows) - 1) * gap)
     rect = pm.Rect(left, y, right, y + height)
@@ -766,9 +838,9 @@ def draw_labeled_box(
     line_top = rect.y0
     for label, body in rows:
         label_rect = pm.Rect(rect.x0 + 6, line_top + 4, rect.x0 + label_width, line_top + line_height - 4)
-        insert_text(page, label_rect, label, font=CURRENT_BOLD_FONT, size=8)
+        insert_text(page, label_rect, label, font=CURRENT_BOLD_FONT, size=label_font_size)
         body_rect = pm.Rect(label_rect.x1 + 6, line_top + 4, rect.x1 - 6, line_top + line_height - 4)
-        insert_text(page, body_rect, body, size=8)
+        insert_text(page, body_rect, body, size=body_font_size)
         line_top += gap
 
     return rect.y1
@@ -793,7 +865,7 @@ def draw_field_row(
             pm.Rect(rect.x0 + 4, rect.y0 + 4, rect.x1 - 4, rect.y1 - 6),
             label,
             font=CURRENT_BOLD_FONT,
-            size=7,
+            size=CURRENT_LAYOUT.field_label_font_size,
         )
         x += field_width
         rects.append((rect, label))
@@ -809,12 +881,15 @@ def draw_checkbox_line(
     options: list[str],
     field_name: str,
 ) -> float:
+    question_size = CURRENT_LAYOUT.question_font_size
+    option_size = CURRENT_LAYOUT.option_font_size
+    label_width = CURRENT_LAYOUT.checkbox_label_width
     insert_text(
         page,
         pm.Rect(left + 4, y, right - 4, y + 26),
         question,
         font=CURRENT_BOLD_FONT,
-        size=8,
+        size=question_size,
     )
     box_y = y + 22
     x = left + 8
@@ -848,12 +923,12 @@ def draw_checkbox_line(
     _TOOLTIP_QUEUE[field_name].append(tooltip)
     insert_text(
         page,
-        pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 150, box_rect.y1 + 10),
+        pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 4 + label_width, box_rect.y1 + 10),
         first_option,
-        size=8,
+        size=option_size,
     )
-    x = box_rect.x1 + 150
-    
+    x = box_rect.x1 + 4 + label_width
+
     # Now add the remaining options to the same field by creating widget annotations
     # that reference the parent field
     for idx, option in enumerate(options[1:], start=1):
@@ -878,11 +953,11 @@ def draw_checkbox_line(
         _TOOLTIP_QUEUE[field_name].append(tooltip)
         insert_text(
             page,
-            pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 150, box_rect.y1 + 10),
+            pm.Rect(box_rect.x1 + 4, box_rect.y0 - 2, box_rect.x1 + 4 + label_width, box_rect.y1 + 10),
             option,
-            size=8,
+            size=option_size,
         )
-        x = box_rect.x1 + 150
+        x = box_rect.x1 + 4 + label_width
     
     # Store the radio button info for post-processing (we'll fix the on-states after saving)
     doc = page.parent
@@ -917,11 +992,13 @@ def draw_checkbox_grid(
     columns: int,
     row_height: float = 18,
     field_prefix: str = "checkbox",
-    font_size: float = 8,
+    font_size: float | None = None,
     font_name: str | None = None,
 ) -> float:
     if font_name is None:
         font_name = CURRENT_TEXT_FONT
+    if font_size is None:
+        font_size = CURRENT_LAYOUT.option_font_size
     content_width = right - left
     column_width = content_width / columns
     box_size = 10
@@ -1079,13 +1156,26 @@ def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, toolti
         _TOOLTIP_QUEUE[field_name].append(tooltip)
 
 
-def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, float] | None:
+def build_form(
+    page: pm.Page, translator: Translator
+) -> tuple[
+    tuple[int, str, float] | None,
+    list[dict[str, object]],
+    dict[str, object],
+]:
     doc = page.parent
-    global CURRENT_TEXT_FONT, CURRENT_BOLD_FONT
+    global CURRENT_TEXT_FONT, CURRENT_BOLD_FONT, CURRENT_LAYOUT
 
     previous_text_font = CURRENT_TEXT_FONT
     previous_bold_font = CURRENT_BOLD_FONT
-    CURRENT_TEXT_FONT, CURRENT_BOLD_FONT = configure_fonts_for_language(page, translator.language)
+    previous_layout = CURRENT_LAYOUT
+    CURRENT_LAYOUT = LAYOUT_OVERRIDES.get(translator.language, DEFAULT_LAYOUT)
+    (
+        CURRENT_TEXT_FONT,
+        CURRENT_BOLD_FONT,
+        text_font_xref,
+        bold_font_xref,
+    ) = configure_fonts_for_language(page, translator.language)
 
     signature_font_name = CURRENT_TEXT_FONT
     signature_font_xref: int | None = None
@@ -1121,7 +1211,13 @@ def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, 
 
         header_height = 56
         header_rect = pm.Rect(left, y, right, y + header_height)
-        insert_center_text(page, header_rect, text("title"), size=30, color=BLACK)
+        insert_center_text(
+            page,
+            header_rect,
+            text("title"),
+            size=CURRENT_LAYOUT.title_font_size,
+            color=BLACK,
+        )
         y += header_height
         page.draw_line((left, y), (right, y))
 
@@ -1335,10 +1431,18 @@ def build_form(page: pm.Page, translator: Translator) -> tuple[int | None, str, 
         if signature_font_name == SIGNATURE_FONT_NAME and isinstance(signature_font_xref, int):
             signature_info = (signature_font_xref, signature_font_name, signature_font_size)
 
-        return signature_info, radio_button_updates
+        widget_font_info = {
+            "text_name": CURRENT_TEXT_FONT,
+            "text_xref": text_font_xref,
+            "bold_name": CURRENT_BOLD_FONT,
+            "bold_xref": bold_font_xref,
+        }
+
+        return signature_info, radio_button_updates, widget_font_info
     finally:
         CURRENT_TEXT_FONT = previous_text_font
         CURRENT_BOLD_FONT = previous_bold_font
+        CURRENT_LAYOUT = previous_layout
 
 
 def remove_text_widget_borders(doc: pm.Document) -> None:
@@ -1430,6 +1534,67 @@ def configure_signature_font(
         traceback.print_exc()
 
 
+def apply_widget_default_fonts(doc: pm.Document, font_info: dict[str, object]) -> None:
+    text_font_name = font_info.get("text_name")
+    text_font_xref = font_info.get("text_xref")
+    if not isinstance(text_font_name, str) or not isinstance(text_font_xref, int):
+        return
+
+    bold_font_name = font_info.get("bold_name")
+    bold_font_xref = font_info.get("bold_xref")
+
+    try:
+        acroform_xref = _ensure_acroform_xref(doc)
+    except RuntimeError:
+        return
+
+    dr_ref = doc.xref_get_key(acroform_xref, "DR")
+    dr_dict_str = ""
+    if dr_ref:
+        if dr_ref[0] == "dict":
+            dr_dict_str = dr_ref[1]
+        elif dr_ref[0] == "xref":
+            dr_dict_str = doc.xref_object(int(dr_ref[1].split()[0]))
+
+    font_entries = _extract_font_entries(dr_dict_str)
+    font_entries[text_font_name] = f"{text_font_xref} 0 R"
+    if isinstance(bold_font_name, str) and isinstance(bold_font_xref, int):
+        font_entries[bold_font_name] = f"{bold_font_xref} 0 R"
+
+    entries_str = " ".join(f"/{name} {value}" for name, value in font_entries.items())
+    residual = ""
+    if dr_dict_str:
+        residual = _strip_outer_dictionary(dr_dict_str)
+        residual = re.sub(r"/Font\s*<<.*?>>", "", residual, flags=re.DOTALL).strip()
+
+    inner_parts = []
+    if residual:
+        inner_parts.append(residual)
+    inner_parts.append(f"/Font << {entries_str} >>")
+    new_dr = f"<< {' '.join(inner_parts)} >>"
+    doc.xref_set_key(acroform_xref, "DR", new_dr)
+
+    processed_parents: set[int] = set()
+    for page in doc:
+        for widget in page.widgets():
+            da_ref = doc.xref_get_key(widget.xref, "DA")
+            if da_ref and da_ref[0] == "string":
+                new_da = _rewrite_da_font(da_ref[1], text_font_name)
+                if new_da and new_da != da_ref[1]:
+                    doc.xref_set_key(widget.xref, "DA", f"({new_da})")
+            parent_ref = doc.xref_get_key(widget.xref, "Parent")
+            if parent_ref and parent_ref[0] == "xref":
+                parent_xref = int(parent_ref[1].split()[0])
+                if parent_xref in processed_parents:
+                    continue
+                processed_parents.add(parent_xref)
+                parent_da = doc.xref_get_key(parent_xref, "DA")
+                if parent_da and parent_da[0] == "string":
+                    new_parent_da = _rewrite_da_font(parent_da[1], text_font_name)
+                    if new_parent_da and new_parent_da != parent_da[1]:
+                        doc.xref_set_key(parent_xref, "DA", f"({new_parent_da})")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a Butt Hurt Report PDF form.")
     parser.add_argument(
@@ -1462,7 +1627,7 @@ def main() -> None:
     def render_language(translator: Translator, output_path: Path) -> None:
         doc = pm.open()
         page = doc.new_page()
-        signature_info, radio_button_updates = build_form(page, translator)
+        signature_info, radio_button_updates, widget_font_info = build_form(page, translator)
         doc.save(str(output_path))
         doc.close()
 
@@ -1481,6 +1646,7 @@ def main() -> None:
                 )
         
         fix_radio_button_groups(post_doc, radio_button_updates)
+        apply_widget_default_fonts(post_doc, widget_font_info)
         
         # Save to temporary file then replace the original
         temp_path = output_path.with_suffix(output_path.suffix + ".tmp")
