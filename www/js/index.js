@@ -348,6 +348,24 @@ const registerEncodingValidationTargets = () => {
   });
 };
 
+const clearEncodingValidationState = () => {
+  encodingValidationTargets.forEach((element) => {
+    if (!element) {
+      return;
+    }
+    element.classList.remove("is-invalid");
+    element.removeAttribute("aria-invalid");
+    if (element.dataset) {
+      delete element.dataset.encodingMismatchActive;
+      delete element.dataset.encodingMessageApplied;
+    }
+    if (!hasBaseCustomValidityMessage(element) && element.validationMessage) {
+      element.setCustomValidity("");
+    }
+    hideEncodingTooltip(element);
+  });
+};
+
 const queryLanguageInfo = (() => {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -769,6 +787,7 @@ const authWhinerNameInput = document.getElementById("part-vi-a");
 const signatureInput = document.getElementById("part-vi-b");
 const offenderInput = document.getElementById("part-ii-d");
 const ssnInput = document.getElementById("part-i-b");
+const resetButton = document.getElementById("reset-form-btn");
 const pdfButton = document.getElementById("generate-pdf-btn");
 const jpgButton = document.getElementById("generate-jpg-btn");
 const isRadioNodeList = (element) =>
@@ -1125,6 +1144,30 @@ const setBaseCustomValidity = (element, message) => {
   } else {
     delete element.dataset.baseValidityActive;
   }
+};
+
+const resetFormFields = () => {
+  if (!htmlForm) {
+    return;
+  }
+
+  htmlForm.reset();
+
+  clearEncodingValidationState();
+
+  if (signatureInput?.dataset) {
+    delete signatureInput.dataset.signatureSource;
+  }
+
+  setBaseCustomValidity(whinerNameInput, "");
+  setBaseCustomValidity(authWhinerNameInput, "");
+  setBaseCustomValidity(offenderInput, "");
+  setBaseCustomValidity(ssnInput, "");
+
+  updateSignatureFromName(authWhinerNameInput?.value ?? "", { force: true });
+  applyEncodingValidationToAll({ showTooltip: false });
+  scheduleQueryStringSync();
+  gtagLog("reset_form", "web", "form");
 };
 
 function validateForm() {
@@ -1710,6 +1753,8 @@ function doExport() {
 
   runWithLoadingState(null, task, errorMessage);
 }
+
+resetButton?.addEventListener("click", resetFormFields);
 
 pdfButton?.addEventListener("click", () =>
   runWithLoadingState(pdfButton, handlePdfGeneration, "We couldn't generate the PDF. Please try again.")
