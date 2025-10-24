@@ -58,6 +58,9 @@ class LayoutSpec:
     question_font_size: float = 8.0
     option_font_size: float = 8.0
     checkbox_label_width: float = 150.0
+    label_width_override: float | None = None
+    line_height_override: float | None = None
+    row_gap_override: float | None = None
 
 
 FONT_PROFILES: dict[str, FontProfile] = {
@@ -127,6 +130,9 @@ LAYOUT_OVERRIDES: dict[str, LayoutSpec] = {
         question_font_size=7.0,
         option_font_size=7.0,
         checkbox_label_width=170.0,
+        label_width_override=200.0,
+        line_height_override=28.0,
+        row_gap_override=14.0,
     ),
     "th": LayoutSpec(
         title_font_size=22.0,
@@ -795,7 +801,21 @@ def insert_text(
 ) -> None:
     if font is None:
         font = CURRENT_TEXT_FONT
-    page.insert_textbox(rect, text, fontname=font, fontsize=size, align=align, color=color)
+    max_width = rect.width
+    current_size = size
+    if max_width > 0:
+        text_width = measure_text_width(text, font, current_size)
+        if text_width > max_width:
+            scale = max_width / text_width
+            current_size = max(4.5, current_size * scale * 0.98)
+    page.insert_textbox(
+        rect,
+        text,
+        fontname=font,
+        fontsize=current_size,
+        align=align,
+        color=color,
+    )
 
 
 def measure_text_width(text: str, font_name: str, font_size: float) -> float:
@@ -828,18 +848,24 @@ def draw_labeled_box(
     line_height: float = 22,
     row_gap: float | None = None,
 ) -> float:
+    layout_label_width = CURRENT_LAYOUT.label_width_override or label_width
+    layout_line_height = CURRENT_LAYOUT.line_height_override or line_height
+    layout_row_gap = CURRENT_LAYOUT.row_gap_override if CURRENT_LAYOUT.row_gap_override is not None else row_gap
+    # Debug: ensure content exists
+    if not rows:
+        return y + layout_line_height
     label_font_size = CURRENT_LAYOUT.label_font_size
     body_font_size = CURRENT_LAYOUT.body_font_size
-    gap = row_gap if row_gap is not None else line_height
-    height = line_height + max(0, (len(rows) - 1) * gap)
+    gap = layout_row_gap if layout_row_gap is not None else layout_line_height
+    height = layout_line_height + max(0, (len(rows) - 1) * gap)
     rect = pm.Rect(left, y, right, y + height)
     page.draw_rect(rect, color=BLACK, width=1)
 
     line_top = rect.y0
     for label, body in rows:
-        label_rect = pm.Rect(rect.x0 + 6, line_top + 4, rect.x0 + label_width, line_top + line_height - 4)
+        label_rect = pm.Rect(rect.x0 + 6, line_top + 4, rect.x0 + layout_label_width, line_top + layout_line_height - 4)
         insert_text(page, label_rect, label, font=CURRENT_BOLD_FONT, size=label_font_size)
-        body_rect = pm.Rect(label_rect.x1 + 6, line_top + 4, rect.x1 - 6, line_top + line_height - 4)
+        body_rect = pm.Rect(label_rect.x1 + 6, line_top + 4, rect.x1 - 6, line_top + layout_line_height - 4)
         insert_text(page, body_rect, body, size=body_font_size)
         line_top += gap
 
