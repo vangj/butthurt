@@ -1,3 +1,4 @@
+import "https://cdn.jsdelivr.net/npm/regenerator-runtime@0.13.11/runtime.min.js"; // Ensure async/await helpers exist for fontkit.
 import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
 import fontkit from "https://cdn.skypack.dev/@pdf-lib/fontkit@1.1.1?min";
 import { translations, supportedLanguages } from "./i18n.js";
