@@ -257,7 +257,8 @@ const populateLanguageSelect = (initialLanguage) => {
   for (const lang of supportedLanguages) {
     const option = document.createElement("option");
     option.value = lang;
-    option.textContent = languageDisplayNames[lang] ?? lang;
+    const displayName = languageDisplayNames[lang];
+    option.textContent = displayName ? `${lang} - ${displayName}` : lang;
     fragment.append(option);
   }
   languageSelect.append(fragment);
