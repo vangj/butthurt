@@ -1459,29 +1459,55 @@ def build_form(
         link_rect = pm.Rect(left, link_y0, right, link_y0 + FOOTER_LINK_HEIGHT)
         text_rect = pm.Rect(link_rect.x0 + 4, link_rect.y0, link_rect.x1 - 4, link_rect.y1)
         footer_font_size = 8.0
-        insert_text(
-            page,
-            pm.Rect(text_rect.x0, text_rect.y0 + (link_rect.height - footer_font_size) / 2 - 1.0, text_rect.x1, text_rect.y1),
-            FOOTER_LINK_URL,
-            font=CURRENT_TEXT_FONT,
-            size=footer_font_size,
-            color=BLACK,
-            align=pm.TEXT_ALIGN_CENTER,
-        )
+        footer_icon_only_languages = {"lo", "th", "km"}
+        show_footer_text = translator.language not in footer_icon_only_languages
+        footer_text = FOOTER_LINK_URL if show_footer_text else ""
 
+        if footer_text:
+            insert_text(
+                page,
+                pm.Rect(
+                    text_rect.x0,
+                    text_rect.y0 + (link_rect.height - footer_font_size) / 2 - 1.0,
+                    text_rect.x1,
+                    text_rect.y1,
+                ),
+                footer_text,
+                font=CURRENT_TEXT_FONT,
+                size=footer_font_size,
+                color=BLACK,
+                align=pm.TEXT_ALIGN_CENTER,
+            )
+
+        icon_rect: pm.Rect | None = None
         if FOOTER_ICON_PATH.exists():
             icon_size = min(FOOTER_ICON_SIZE, max(link_rect.height - 4.0, 0.0))
-            text_width = measure_text_width(FOOTER_LINK_URL, CURRENT_TEXT_FONT, footer_font_size)
             available_width = max(text_rect.width, 0.0)
             if icon_size > 0 and available_width > 0:
-                effective_text_width = min(text_width, available_width)
-                text_left = text_rect.x0 + (available_width - effective_text_width) / 2
-                icon_x1 = text_left - FOOTER_ICON_GAP
-                icon_x0 = icon_x1 - icon_size
-                min_x0 = link_rect.x0 + 2.0
-                if icon_x0 < min_x0:
-                    icon_x0 = min_x0
+                if footer_text:
+                    text_width = measure_text_width(
+                        footer_text, CURRENT_TEXT_FONT, footer_font_size
+                    )
+                    effective_text_width = min(text_width, available_width)
+                    text_left = text_rect.x0 + (available_width - effective_text_width) / 2
+                    icon_x1 = text_left - FOOTER_ICON_GAP
+                    icon_x0 = icon_x1 - icon_size
+                    min_x0 = link_rect.x0 + 2.0
+                    if icon_x0 < min_x0:
+                        icon_x0 = min_x0
+                        icon_x1 = icon_x0 + icon_size
+                else:
+                    icon_x0 = link_rect.x0 + (link_rect.width - icon_size) / 2
                     icon_x1 = icon_x0 + icon_size
+                    min_x0 = link_rect.x0 + 2.0
+                    max_x1 = link_rect.x1 - 2.0
+                    if icon_x0 < min_x0:
+                        icon_x0 = min_x0
+                        icon_x1 = icon_x0 + icon_size
+                    if icon_x1 > max_x1:
+                        icon_x1 = max_x1
+                        icon_x0 = icon_x1 - icon_size
+
                 if icon_x1 <= link_rect.x1 - 2.0:
                     icon_y0 = link_rect.y0 + (link_rect.height - icon_size) / 2
                     icon_y1 = icon_y0 + icon_size
@@ -1492,7 +1518,7 @@ def build_form(
         page.insert_link(
             {
                 "kind": pm.LINK_URI,
-                "from": link_rect,
+                "from": icon_rect if icon_rect is not None else link_rect,
                 "uri": FOOTER_LINK_URL,
             }
         )
