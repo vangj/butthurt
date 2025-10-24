@@ -1111,30 +1111,6 @@ const applyQueryParamsToForm = () => {
   }
 };
 
-applyQueryParamsToForm();
-refreshEncodingValidation({ showTooltip: false });
-doExport();
-
-whinerNameInput?.addEventListener("input", () => {
-  syncFieldValue(whinerNameInput, authWhinerNameInput);
-  updateSignatureFromName(authWhinerNameInput?.value ?? "");
-});
-
-authWhinerNameInput?.addEventListener("input", () => {
-  syncFieldValue(authWhinerNameInput, whinerNameInput);
-  updateSignatureFromName(authWhinerNameInput.value);
-});
-
-if (whinerNameInput && authWhinerNameInput) {
-  if (whinerNameInput.value && !authWhinerNameInput.value) {
-    authWhinerNameInput.value = whinerNameInput.value;
-  } else if (!whinerNameInput.value && authWhinerNameInput.value) {
-    whinerNameInput.value = authWhinerNameInput.value;
-  }
-  updateSignatureFromName(authWhinerNameInput.value);
-}
-updateSignatureFromName(authWhinerNameInput?.value ?? "");
-
 const setBaseCustomValidity = (element, message) => {
   if (!element) {
     return;
@@ -1754,6 +1730,36 @@ function doExport() {
 
   runWithLoadingState(null, task, errorMessage);
 }
+
+const initializeFormState = () => {
+  applyQueryParamsToForm();
+  refreshEncodingValidation({ showTooltip: false });
+
+  if (whinerNameInput && authWhinerNameInput) {
+    if (whinerNameInput.value && !authWhinerNameInput.value) {
+      authWhinerNameInput.value = whinerNameInput.value;
+    } else if (!whinerNameInput.value && authWhinerNameInput.value) {
+      whinerNameInput.value = authWhinerNameInput.value;
+    }
+    updateSignatureFromName(authWhinerNameInput.value);
+  }
+
+  updateSignatureFromName(authWhinerNameInput?.value ?? "");
+
+  doExport();
+};
+
+whinerNameInput?.addEventListener("input", () => {
+  syncFieldValue(whinerNameInput, authWhinerNameInput);
+  updateSignatureFromName(authWhinerNameInput?.value ?? "");
+});
+
+authWhinerNameInput?.addEventListener("input", () => {
+  syncFieldValue(authWhinerNameInput, whinerNameInput);
+  updateSignatureFromName(authWhinerNameInput.value);
+});
+
+initializeFormState();
 
 resetButton?.addEventListener("click", resetFormFields);
 
