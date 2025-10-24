@@ -204,4 +204,22 @@ test.describe('Butt Hurt Report UI', () => {
     await pdfDownload.path();
     expect(pdfDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.pdf$/i);
   });
+
+  test('should validate encoding mismatch correctly', async ({ page }) => {
+    await page.goto('/');
+
+    await page.locator('#language-select').selectOption('en');
+    await page.fill('#part-i-a', '柔術');
+    await page.fill('#part-ii-d', 'judo');
+
+    const pdfDownload = page.waitForEvent('download', { timeout: 1500 });
+    await page.click('#generate-pdf-btn');
+    await expect(pdfDownload).rejects.toThrow();
+
+    const jpgDownload = page.waitForEvent('download', { timeout: 1500 });
+    await page.click('#generate-jpg-btn');
+    await expect(jpgDownload).rejects.toThrow();
+
+    await expect(page.locator('#part-i-a')).toHaveClass(/\bis-invalid\b/);
+  });
 });
