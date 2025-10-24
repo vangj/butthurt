@@ -18,7 +18,7 @@ You need the following.
 - Node v22.20.0
 - Make v3.81
 
-Then simply type in `make` to build the optimized distribution in `www-optimized`.
+Then simply type in `make` to build and test the optimized distribution in `www-optimized`.
 
 ## UI testing
 
