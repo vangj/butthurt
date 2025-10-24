@@ -1,15 +1,17 @@
-.PHONY: all clean generate copy
+.PHONY: all clean generate generate-widget-data copy
 
 all: clean generate copy
 
 clean:
-	rm -f ./pdf/* || true
-	rm -f ./pdf/*.csv || true
-	rm -f ./csv/* || true
+	rm -fr ./pdf
+	rm -fr ./csv
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 
 generate:
-	python generate_form.py -l all --export-widget-data
+	python generate_form.py -l all --export-pdf --export-widget-data
+
+generate-widget-data:
+	python generate_form.py -l all --export-widget-data --no-export-pdf
 
 copy:
 	cp -f ./pdf/*.pdf ../www/pdf/

@@ -1718,7 +1718,16 @@ def main() -> None:
         action="store_true",
         help="Export widget metadata CSV alongside the PDF.",
     )
+    parser.add_argument(
+        "--export-pdf",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Generate the PDF output (use --no-export-pdf to skip).",
+    )
     args = parser.parse_args()
+
+    if not args.export_pdf and not args.export_widget_data:
+        parser.error("At least one of --export-pdf or --export-widget-data must be enabled.")
 
     language = (args.language or DEFAULT_LANGUAGE).strip()
     i18n_path = Path(args.i18n_path)
@@ -1758,7 +1767,14 @@ def main() -> None:
         post_doc.close()
         
         # Replace the original with the temp file
-        os.replace(str(temp_path), str(output_path))
+        if args.export_pdf:
+            os.replace(str(temp_path), str(output_path))
+        else:
+            for path_obj in (output_path, temp_path):
+                try:
+                    os.remove(path_obj)
+                except FileNotFoundError:
+                    pass
         
         if args.export_widget_data:
             export_metadata(metadata, str(output_path))
