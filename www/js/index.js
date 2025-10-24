@@ -1,4 +1,5 @@
 import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?min";
+import fontkit from "https://cdn.skypack.dev/@pdf-lib/fontkit@1.1.1?min";
 import { translations, supportedLanguages } from "./i18n.js";
 import { radioGroupsDefinition } from "./radio-groups.js";
 import { radioOnValueMap } from "./radio-on-values.js";
@@ -9,6 +10,17 @@ const pdfJsWorkerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pd
 // Languages whose PDFs rely on custom fonts that pdf.js cannot load inside a worker.
 const mainThreadRenderLanguages = new Set(["zh", "ja", "ko", "ru", "vi", "km", "lo", "th"]);
 const pdfJsStandardFontDataUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/standard_fonts/";
+const languageFontPaths = {
+  ja: "fonts/NotoSansCJKjp-Regular.otf",
+  zh: "fonts/SourceHanSansSC-Regular.otf",
+  ko: "fonts/NotoSansCJKkr-Regular.otf",
+  ru: "fonts/NotoSans-Regular.ttf",
+  vi: "fonts/NotoSans-Regular.ttf",
+  km: "fonts/NotoSansKhmer-Regular.ttf",
+  lo: "fonts/NotoSansLao-Regular.ttf",
+  th: "fonts/NotoSansThai-Regular.ttf"
+};
+const fontBytesCache = new Map();
 const signatureFontFamily = '"Great Vibes", "Brush Script MT", cursive';
 let signatureFontReadyPromise = null;
 let pdfJsModulePromise = null;
@@ -62,6 +74,47 @@ const normalizeLanguageCode = (code) => {
     return basePart;
   }
   return null;
+};
+
+const getLanguageFontPath = (language) => {
+  const normalized = normalizeLanguageCode(language);
+  if (!normalized) {
+    return null;
+  }
+  return languageFontPaths[normalized] ?? null;
+};
+
+const loadFontBytes = async (fontPath) => {
+  if (!fontPath) {
+    return null;
+  }
+  if (fontBytesCache.has(fontPath)) {
+    return fontBytesCache.get(fontPath);
+  }
+
+  const url = new URL(fontPath, window.location.href);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Received status ${response.status} while loading font: ${fontPath}`);
+  }
+
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  fontBytesCache.set(fontPath, bytes);
+  return bytes;
+};
+
+const loadLanguageFontBytes = async (language) => {
+  const fontPath = getLanguageFontPath(language);
+  if (!fontPath) {
+    return null;
+  }
+  try {
+    return await loadFontBytes(fontPath);
+  } catch (error) {
+    console.warn(`Unable to load font for language ${language}:`, error);
+    return null;
+  }
 };
 
 const queryLanguageInfo = (() => {
@@ -371,10 +424,20 @@ const renderSignatureToImageBytes = async (text, rect) => {
   }
 };
 
-const setTextFields = (form, mappings) => {
+const setTextFields = (form, mappings, { font = null } = {}) => {
   for (const [fieldName, value] of Object.entries(mappings)) {
     const textField = form.getTextField(fieldName);
-    textField.setText(value ?? "");
+    const textValue =
+      typeof value === "string" ? value : value != null ? String(value) : "";
+    if (font) {
+      try {
+        textField.setText(textValue, { font });
+        continue;
+      } catch (error) {
+        console.warn(`Unable to apply custom font for ${fieldName}:`, error);
+      }
+    }
+    textField.setText(textValue);
   }
 };
 
@@ -990,10 +1053,22 @@ async function createFilledPdfBytes() {
   const pdfBytes = await fetchBlankPdfBytes(activeLanguage);
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
 
+  let textFieldFont = null;
+  const fontBytes = await loadLanguageFontBytes(activeLanguage);
+  if (fontBytes) {
+    pdfDoc.registerFontkit(fontkit);
+    try {
+      textFieldFont = await pdfDoc.embedFont(fontBytes, { subset: true });
+    } catch (error) {
+      console.warn(`Unable to embed custom font for ${activeLanguage}:`, error);
+      textFieldFont = null;
+    }
+  }
+
   const form = pdfDoc.getForm();
   const { textFields, signature, checkboxes, radioSelections } = collectFormValues();
 
-  setTextFields(form, textFields);
+  setTextFields(form, textFields, { font: textFieldFont });
 
   let signatureRect = null;
   let signaturePageIndex = 0;
@@ -1035,6 +1110,16 @@ async function createFilledPdfBytes() {
   setCheckBoxes(form, checkboxes);
   applyRadioSelections(form, radioSelections);
 
+  try {
+    if (textFieldFont) {
+      form.updateFieldAppearances(textFieldFont);
+    } else {
+      form.updateFieldAppearances();
+    }
+  } catch (error) {
+    console.warn("Could not update field appearances:", error);
+  }
+
   form.flatten();
 
   let signatureImageBytes = null;
@@ -1070,7 +1155,10 @@ async function createFilledPdfBytes() {
       if (!page) {
         throw new Error("Unable to access the signature page.");
       }
-      const fallbackFont = await pdfDoc.embedStandardFont("Helvetica");
+      let fallbackFont = textFieldFont;
+      if (!fallbackFont) {
+        fallbackFont = await pdfDoc.embedStandardFont("Helvetica");
+      }
       const fontSize = Math.min(16, Math.max(10, signatureRect.height * 0.75));
       const xPosition = signatureRect.x + 4;
       const yPosition = signatureRect.y + (signatureRect.height - fontSize) / 2;
