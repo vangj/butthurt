@@ -23,6 +23,9 @@ SECTION_HEADER_HEIGHT = 28
 MIN_SIGNATURE_REGION_HEIGHT = 48
 MIN_TEXT_WIDGET_BOTTOM_MARGIN = 10
 
+FOOTER_LINK_URL = "https://butthurt.gooblygock.com/"
+FOOTER_LINK_HEIGHT = 18.0
+
 PART_ROMANS = {
     1: "I",
     2: "II",
@@ -1448,6 +1451,25 @@ def build_form(
         ):
             kwargs = {"tooltip": TEXT_TOOLTIPS.get(name)}
             add_text_widget(page, rect, name, **kwargs)
+
+        link_y0 = min(bottom + 6.0, page.rect.height - FOOTER_LINK_HEIGHT - 2.0)
+        link_rect = pm.Rect(left, link_y0, right, link_y0 + FOOTER_LINK_HEIGHT)
+        text_rect = pm.Rect(link_rect.x0 + 4, link_rect.y0, link_rect.x1 - 4, link_rect.y1)
+        insert_center_text(
+            page,
+            text_rect,
+            FOOTER_LINK_URL,
+            font=CURRENT_TEXT_FONT,
+            size=8,
+            color=BLACK,
+        )
+        page.insert_link(
+            {
+                "kind": pm.LINK_URI,
+                "from": link_rect,
+                "uri": FOOTER_LINK_URL,
+            }
+        )
 
         apply_tooltips(page)
 
