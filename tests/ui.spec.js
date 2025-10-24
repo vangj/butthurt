@@ -4,6 +4,50 @@ import { supportedLanguages, translations } from '../www/js/i18n.js';
 const escapeForRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const prefilledQuery =
   'p1a=Donald%20J%20Trump&p1b=555116969&p1c=2025-10-18&p1d=White%20House&p1e=President&p2a=2025-10-19&p2b=09:00&p2c=No%20Kings%20Rally&p2d=Americans&p2e=MAGA&p31=both&p32=yes&p33=multiple&p34=yes&p41=1&p42=1&p43=1&p44=1&p45=1&p46=1&p47=1&p48=1&p49=1&p410=1&p411=1&p412=1&p413=1&p414=1&p415=1&p5=NKR%20hates%20Murica&language=en';
+const sanitizeLanguageForFilename = (value) => value.replace(/[^a-z0-9-]+/gi, '_');
+const exportLanguageCases = [
+  { code: 'en', whiner: 'Donald J Trump', offender: 'Joe Biden' },
+  { code: 'es', whiner: 'José Pérez', offender: 'María Gómez' },
+  { code: 'zh', whiner: '张伟', offender: '李娜' },
+  { code: 'ko', whiner: '김민수', offender: '박지민' },
+  { code: 'ja', whiner: '山田太郎', offender: '佐藤花子' },
+  { code: 'de', whiner: 'Jürgen Müller', offender: 'Karl Schmidt' },
+  { code: 'fr', whiner: 'Étienne Dupont', offender: 'Jean Valjean' },
+  { code: 'hmn', whiner: 'Nplooj Lis', offender: 'Muaj Vwj' },
+  { code: 'fil', whiner: 'Juan Dela Cruz', offender: 'Jose Rizal' },
+  { code: 'it', whiner: 'Giuseppe Verdi', offender: 'Luca Rossi' },
+  { code: 'pt-br', whiner: 'João Silva', offender: 'Maria Souza' },
+  { code: 'ru', whiner: 'Алексей Иванов', offender: 'Мария Петрова' },
+  { code: 'vi', whiner: 'Nguyễn Văn An', offender: 'Trần Thị Bích' },
+  { code: 'km', whiner: 'សុខ ពៅ', offender: 'ជា លីដា' },
+  { code: 'lo', whiner: 'ສີວົງ ພອນ', offender: 'ຈັນທະ ດາວ' },
+  { code: 'th', whiner: 'สมชาย ใจดี', offender: 'สมหญิง ศรีสวย' },
+];
+const expectExportsForLanguage = async (page, { code, whiner, offender }) => {
+  await page.goto('/');
+  await page.locator('#language-select').selectOption(code);
+  await page.fill('#part-i-a', whiner);
+  await page.fill('#part-ii-d', offender);
+  await expect(page.locator('#part-vi-a')).toHaveValue(whiner);
+
+  const sanitizedCode = sanitizeLanguageForFilename(code);
+
+  const [jpgDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('#generate-jpg-btn'),
+  ]);
+
+  await jpgDownload.path();
+  expect(jpgDownload.suggestedFilename()).toMatch(new RegExp(`^butthurt_${sanitizedCode}_.*\\.jpg$`, 'i'));
+
+  const [pdfDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('#generate-pdf-btn'),
+  ]);
+
+  await pdfDownload.path();
+  expect(pdfDownload.suggestedFilename()).toMatch(new RegExp(`^butthurt_${sanitizedCode}_.*\\.pdf$`, 'i'));
+};
 
 test.describe('Butt Hurt Report UI', () => {
   test('renders the landing page', async ({ page }) => {
@@ -204,6 +248,12 @@ test.describe('Butt Hurt Report UI', () => {
     await pdfDownload.path();
     expect(pdfDownload.suggestedFilename()).toMatch(/^butthurt_en_.*\.pdf$/i);
   });
+
+  for (const languageCase of exportLanguageCases) {
+    test(`exports ${languageCase.code} correctly as jpg and pdf`, async ({ page }) => {
+      await expectExportsForLanguage(page, languageCase);
+    });
+  }
 
   test('should validate encoding mismatch correctly', async ({ page }) => {
     await page.goto('/');
