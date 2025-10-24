@@ -145,4 +145,45 @@ test.describe('Butt Hurt Report UI', () => {
     await expectValue('#part-vi-a', 'Donald J Trump');
     await expectValue('#part-vi-b', 'Donald J Trump');
   });
+
+  test('clears the form correctly', async ({ page }) => {
+    const query =
+      'p1a=Donald%20J%20Trump&p1b=555116969&p1c=2025-10-18&p1d=White%20House&p1e=President&p2a=2025-10-19&p2b=09:00&p2c=No%20Kings%20Rally&p2d=Americans&p2e=MAGA&p31=both&p32=yes&p33=multiple&p34=yes&p41=1&p42=1&p43=1&p44=1&p45=1&p46=1&p47=1&p48=1&p49=1&p410=1&p411=1&p412=1&p413=1&p414=1&p415=1&p5=NKR%20hates%20Murica&language=en';
+    await page.goto(`/?${query}`);
+
+    await page.click('#reset-form-btn');
+
+    const expectEmpty = async (selector) => {
+      await expect(page.locator(selector)).toHaveValue('');
+    };
+
+    await expect(page.locator('#language-select')).toHaveValue('en');
+
+    await expectEmpty('#part-i-a');
+    await expectEmpty('#part-i-b');
+    await expectEmpty('#part-i-c');
+    await expectEmpty('#part-i-d');
+    await expectEmpty('#part-i-e');
+
+    await expectEmpty('#part-ii-a');
+    await expectEmpty('#part-ii-b');
+    await expectEmpty('#part-ii-c');
+    await expectEmpty('#part-ii-d');
+    await expectEmpty('#part-ii-e');
+
+    await expect(page.locator('#part-iii-1-both')).not.toBeChecked();
+    await expect(page.locator('#part-iii-2-yes')).not.toBeChecked();
+    await expect(page.locator('#part-iii-3-multiple')).not.toBeChecked();
+    await expect(page.locator('#part-iii-4-yes')).not.toBeChecked();
+
+    for (let index = 1; index <= 15; index += 1) {
+      await expect(page.locator(`#part-iv-${index}`)).not.toBeChecked();
+    }
+
+    await expectEmpty('#part-v');
+    await expectEmpty('#part-vi-a');
+    await expectEmpty('#part-vi-b');
+
+    await expect.poll(() => new URL(page.url()).search).toBe('?language=en');
+  });
 });
