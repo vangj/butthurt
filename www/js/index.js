@@ -38,6 +38,7 @@ const languageDisplayNames = {
   ja: "日本語",
   de: "Deutsch",
   fr: "Français",
+  nl: "Nederlands",
   hmn: "Hmoob",
   fil: "Filipino",
   it: "Italiano",
