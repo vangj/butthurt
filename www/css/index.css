@@ -1,6 +1,94 @@
+@font-face {
+  font-family: "Noto Sans";
+  src: url("../fonts/NotoSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  src: url("../fonts/NotoSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("../fonts/NotoSansBengali-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("../fonts/NotoSansBengali-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Devanagari";
+  src: url("../fonts/NotoSansDevanagari-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Devanagari";
+  src: url("../fonts/NotoSansDevanagari-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Ethiopic";
+  src: url("../fonts/NotoSansEthiopic-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Ethiopic";
+  src: url("../fonts/NotoSansEthiopic-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 body {
   background-color: #f3f4f6;
   font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+html[lang="hi"] body {
+  font-family: "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+}
+
+html[lang="bn"] body {
+  font-family: "Noto Sans Bengali", "Helvetica Neue", Arial, sans-serif;
+}
+
+html[lang="am"] body {
+  font-family: "Noto Sans Ethiopic", "Helvetica Neue", Arial, sans-serif;
+}
+
+html[lang="sw"] body,
+html[lang="ha"] body,
+html[lang="yo"] body,
+html[lang="ig"] body,
+html[lang="om"] body,
+html[lang="zu"] body,
+html[lang="so"] body,
+html[lang="sn"] body,
+html[lang="idn"] body {
+  font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
 }
 
 .sheet {

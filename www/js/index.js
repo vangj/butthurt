@@ -9,7 +9,28 @@ const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 const pdfJsModuleUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
 const pdfJsWorkerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
 // Languages whose PDFs rely on custom fonts that pdf.js cannot load inside a worker.
-const mainThreadRenderLanguages = new Set(["zh", "ja", "ko", "ru", "vi", "km", "lo", "th", "hi"]);
+const mainThreadRenderLanguages = new Set([
+  "zh",
+  "ja",
+  "ko",
+  "ru",
+  "vi",
+  "km",
+  "lo",
+  "th",
+  "hi",
+  "bn",
+  "am",
+  "sw",
+  "ha",
+  "yo",
+  "ig",
+  "om",
+  "zu",
+  "so",
+  "sn",
+  "idn"
+]);
 const pdfJsStandardFontDataUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/standard_fonts/";
 const languageFontPaths = {
   ja: "fonts/NotoSansCJKjp-Regular.otf",
@@ -17,7 +38,18 @@ const languageFontPaths = {
   ko: "fonts/NotoSansCJKkr-Regular.otf",
   ru: "fonts/NotoSans-Regular.ttf",
   vi: "fonts/NotoSans-Regular.ttf",
+  bn: "fonts/NotoSansBengali-Regular.ttf",
   hi: "fonts/NotoSansDevanagari-Regular.ttf",
+  am: "fonts/NotoSansEthiopic-Regular.ttf",
+  sw: "fonts/NotoSans-Regular.ttf",
+  ha: "fonts/NotoSans-Regular.ttf",
+  yo: "fonts/NotoSans-Regular.ttf",
+  ig: "fonts/NotoSans-Regular.ttf",
+  om: "fonts/NotoSans-Regular.ttf",
+  zu: "fonts/NotoSans-Regular.ttf",
+  so: "fonts/NotoSans-Regular.ttf",
+  sn: "fonts/NotoSans-Regular.ttf",
+  idn: "fonts/NotoSans-Regular.ttf",
   km: "fonts/NotoSansKhmer-Regular.ttf",
   lo: "fonts/NotoSansLao-Regular.ttf",
   th: "fonts/NotoSansThai-Regular.ttf"
@@ -39,7 +71,18 @@ const languageDisplayNames = {
   ja: "日本語",
   de: "Deutsch",
   fr: "Français",
+  bn: "বাংলা",
   hi: "हिन्दी",
+  idn: "Bahasa Indonesia",
+  sw: "Kiswahili",
+  ha: "Hausa",
+  yo: "Yorùbá",
+  ig: "Igbo",
+  am: "አማርኛ",
+  om: "Afaan Oromoo",
+  zu: "isiZulu",
+  so: "Soomaali",
+  sn: "chiShona",
   nl: "Nederlands",
   hmn: "Hmoob",
   fil: "Filipino",
@@ -51,6 +94,7 @@ const languageDisplayNames = {
   lo: "ລາວ",
   th: "ไทย"
 };
+const rtlLanguages = new Set();
 const bootstrapGlobal = typeof window !== "undefined" ? window.bootstrap : undefined;
 const BootstrapTooltip = bootstrapGlobal?.Tooltip ?? null;
 const encodingMismatchMessage = "Encoding mismatch. Switch the language or remove unsupported characters.";
@@ -488,6 +532,7 @@ const applyTranslations = (lang, { skipStorage = false } = {}) => {
   }
 
   document.documentElement.lang = normalized;
+  document.documentElement.dir = rtlLanguages.has(normalized) ? "rtl" : "ltr";
 
   const elements = document.querySelectorAll("[data-i18n]");
   elements.forEach((element) => {

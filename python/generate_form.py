@@ -21,6 +21,9 @@ SIGNATURE_FONT_NAME = "GreatVibes"
 
 SECTION_HEADER_HEIGHT = 28
 MIN_SIGNATURE_REGION_HEIGHT = 48
+MIN_SIGNATURE_REGION_COMPACT_HEIGHT = 30
+MIN_NARRATIVE_TEXT_HEIGHT = 18.0
+MAX_NARRATIVE_TEXT_HEIGHT = 64.0
 MIN_TEXT_WIDGET_BOTTOM_MARGIN = 10
 
 FOOTER_LINK_URL = "https://butthurt.gooblygock.com/"
@@ -100,11 +103,88 @@ FONT_PROFILES: dict[str, FontProfile] = {
         regular_name="NotoSans-Regular",
         bold_name="NotoSans-Bold",
     ),
+    "bn": FontProfile(
+        regular_path=FONT_DIR / "NotoSansBengali-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSansBengali-Bold.ttf",
+        regular_name="NotoSansBengali-Regular",
+        bold_name="NotoSansBengali-Bold",
+        encoding=0,
+    ),
     "hi": FontProfile(
         regular_path=FONT_DIR / "NotoSansDevanagari-Regular.ttf",
         bold_path=FONT_DIR / "NotoSansDevanagari-Bold.ttf",
         regular_name="NotoSansDevanagari-Regular",
         bold_name="NotoSansDevanagari-Bold",
+        encoding=0,
+    ),
+    "am": FontProfile(
+        regular_path=FONT_DIR / "NotoSansEthiopic-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSansEthiopic-Bold.ttf",
+        regular_name="NotoSansEthiopic-Regular",
+        bold_name="NotoSansEthiopic-Bold",
+        encoding=0,
+    ),
+    "sw": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "ha": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "yo": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "ig": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "om": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "zu": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "so": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "sn": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
+        encoding=0,
+    ),
+    "idn": FontProfile(
+        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
+        regular_name="NotoSans-Regular",
+        bold_name="NotoSans-Bold",
         encoding=0,
     ),
     "lo": FontProfile(
@@ -132,7 +212,10 @@ FONT_PROFILES: dict[str, FontProfile] = {
 
 CURRENT_TEXT_FONT = DEFAULT_TEXT_FONT
 CURRENT_BOLD_FONT = DEFAULT_BOLD_FONT
+CURRENT_LANGUAGE = DEFAULT_LANGUAGE
+CURRENT_FONT_PROFILE: FontProfile | None = None
 DEFAULT_LAYOUT = LayoutSpec()
+RTL_LANGUAGES = set()
 LAYOUT_OVERRIDES: dict[str, LayoutSpec] = {
     "lo": LayoutSpec(
         title_font_size=22.0,
@@ -156,6 +239,12 @@ LAYOUT_OVERRIDES: dict[str, LayoutSpec] = {
         question_font_size=7.0,
         option_font_size=7.0,
         checkbox_label_width=170.0,
+    ),
+    "idn": LayoutSpec(
+        option_font_size=7.0,
+    ),
+    "sn": LayoutSpec(
+        title_font_size=28.0,
     ),
 }
 CURRENT_LAYOUT = DEFAULT_LAYOUT
@@ -781,6 +870,15 @@ def inset_rect(rect: pm.Rect, dx: float = 4, dy: float = 4) -> pm.Rect:
     return pm.Rect(rect.x0 + dx, rect.y0 + dy, rect.x1 - dx, rect.y1 - dy)
 
 
+def _prepare_text_for_language(text: str) -> str:
+    if not text:
+        return text
+    if CURRENT_LANGUAGE in RTL_LANGUAGES:
+        writer = pm.TextWriter(pm.Rect(0, 0, 1, 1))
+        text = writer.clean_rtl(text)
+    return text
+
+
 def insert_center_text(
     page: pm.Page,
     rect: pm.Rect,
@@ -790,13 +888,12 @@ def insert_center_text(
     size: float = 10,
     color=BLACK,
 ) -> None:
-    if font is None:
-        font = CURRENT_BOLD_FONT
-    page.insert_textbox(
+    insert_text(
+        page,
         rect,
         text,
-        fontname=font,
-        fontsize=size,
+        font=font if font is not None else CURRENT_BOLD_FONT,
+        size=size,
         align=pm.TEXT_ALIGN_CENTER,
         color=color,
     )
@@ -821,13 +918,19 @@ def insert_text(
         if text_width > max_width:
             scale = max_width / text_width
             current_size = max(4.5, current_size * scale * 0.98)
+    processed_text = _prepare_text_for_language(text)
+    fontfile = None
+    if CURRENT_LANGUAGE in RTL_LANGUAGES and CURRENT_FONT_PROFILE and CURRENT_FONT_PROFILE.regular_path:
+        fontfile = str(CURRENT_FONT_PROFILE.regular_path)
     page.insert_textbox(
         rect,
-        text,
+        processed_text,
         fontname=font,
+        fontfile=fontfile,
         fontsize=current_size,
         align=align,
         color=color,
+        set_simple=1 if CURRENT_LANGUAGE in RTL_LANGUAGES else 0,
     )
 
 
@@ -1178,6 +1281,10 @@ def add_text_widget(
 
 
 def add_textarea_widget(page: pm.Page, rect: pm.Rect, field_name: str, *, tooltip: str | None = None) -> None:
+    usable_width = rect.x1 - rect.x0
+    usable_height = rect.y1 - rect.y0
+    if usable_width <= 12 or usable_height <= 12:
+        return
     field_rect = pm.Rect(rect.x0 + 6, rect.y0 + 6, rect.x1 - 6, rect.y1 - 6)
     widget = pm.Widget()
     widget.field_name = field_name
@@ -1203,11 +1310,13 @@ def build_form(
     dict[str, object],
 ]:
     doc = page.parent
-    global CURRENT_TEXT_FONT, CURRENT_BOLD_FONT, CURRENT_LAYOUT
+    global CURRENT_TEXT_FONT, CURRENT_BOLD_FONT, CURRENT_LAYOUT, CURRENT_LANGUAGE, CURRENT_FONT_PROFILE
 
     previous_text_font = CURRENT_TEXT_FONT
     previous_bold_font = CURRENT_BOLD_FONT
     previous_layout = CURRENT_LAYOUT
+    previous_profile = CURRENT_FONT_PROFILE
+    previous_language = CURRENT_LANGUAGE
     CURRENT_LAYOUT = LAYOUT_OVERRIDES.get(translator.language, DEFAULT_LAYOUT)
     (
         CURRENT_TEXT_FONT,
@@ -1215,6 +1324,8 @@ def build_form(
         text_font_xref,
         bold_font_xref,
     ) = configure_fonts_for_language(page, translator.language)
+    CURRENT_FONT_PROFILE = FONT_PROFILES.get(translator.language)
+    CURRENT_LANGUAGE = translator.language
 
     signature_font_name = CURRENT_TEXT_FONT
     signature_font_xref: int | None = None
@@ -1396,6 +1507,10 @@ def build_form(
         )
 
         y = draw_section_header(page, left, right, y, text("part_iv_header"))
+        checkbox_columns = 3
+        checkbox_row_height = 18
+        if translator.language == "idn":
+            checkbox_row_height = 16
         y = draw_checkbox_grid(
             page,
             left,
@@ -1418,15 +1533,31 @@ def build_form(
                 "reason_weather",
                 "reason_all_above",
             ]],
-            columns=3,
+            columns=checkbox_columns,
             field_prefix="reason_filing",
+            row_height=checkbox_row_height,
         )
 
         y = draw_section_header(page, left, right, y, text("part_v_header"))
-        footer_space = SECTION_HEADER_HEIGHT + MIN_SIGNATURE_REGION_HEIGHT
-        available_for_narrative = max(0.0, bottom - y - footer_space)
-        narrative_height = min(64.0, available_for_narrative)
-        if narrative_height > 0:
+        signature_reserve = MIN_SIGNATURE_REGION_HEIGHT
+        footer_space = SECTION_HEADER_HEIGHT + signature_reserve
+        available_for_narrative = bottom - y - footer_space
+
+        if available_for_narrative < MIN_NARRATIVE_TEXT_HEIGHT:
+            shortfall = MIN_NARRATIVE_TEXT_HEIGHT - max(available_for_narrative, 0.0)
+            reclaimable = max(0.0, signature_reserve - MIN_SIGNATURE_REGION_COMPACT_HEIGHT)
+            reclaim = min(shortfall, reclaimable)
+            if reclaim > 0.0:
+                signature_reserve -= reclaim
+                footer_space = SECTION_HEADER_HEIGHT + signature_reserve
+                available_for_narrative = bottom - y - footer_space
+
+        available_for_narrative = max(0.0, available_for_narrative)
+        if available_for_narrative >= MIN_NARRATIVE_TEXT_HEIGHT:
+            narrative_height = min(MAX_NARRATIVE_TEXT_HEIGHT, available_for_narrative)
+        else:
+            narrative_height = available_for_narrative
+        if narrative_height > 0.0:
             narrative_rect = pm.Rect(left, y, right, y + narrative_height)
             page.draw_rect(narrative_rect, color=BLACK, width=1)
             add_textarea_widget(
@@ -1471,7 +1602,7 @@ def build_form(
         footer_text = FOOTER_LINK_URL if show_footer_text else ""
 
         footer_font_name = CURRENT_TEXT_FONT
-        latin_footer_languages = {"hi"}
+        latin_footer_languages = {"hi", "bn", "am"}
         if translator.language in latin_footer_languages:
             footer_font_name = DEFAULT_TEXT_FONT
 
@@ -1555,6 +1686,8 @@ def build_form(
         CURRENT_TEXT_FONT = previous_text_font
         CURRENT_BOLD_FONT = previous_bold_font
         CURRENT_LAYOUT = previous_layout
+        CURRENT_LANGUAGE = previous_language
+        CURRENT_FONT_PROFILE = previous_profile
 
 
 def remove_text_widget_borders(doc: pm.Document) -> None:
