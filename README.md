@@ -41,14 +41,21 @@ Currently supports the following languages
 - `de`: Deutsch
 - `fr`: Français
 - `hmn`: Hmoob
-- `fil`: Filipino
 - `it`: Italiano
-- `pt-br`: Português (Brasil)
 - `ru`: Русский
+- `fil`: Filipino
+- `pt-br`: Português (Brasil)
 - `vi`: Tiếng Việt
-- `km`: ខ្មែរ
 - `lo`: ລາວ
 - `th`: ไทย
+- `km`: ខ្មែរ
+- `nl`: Nederlands
+- `hi`: हिन्दी
+- `bn`: বাংলা
+- `yo`: Yorùbá
+- `ig`: Igbo
+- `am`: አማርኛ
+- `idn`: Bahasa Indonesia
 
 ## License
 
