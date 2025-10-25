@@ -14,6 +14,7 @@ const exportLanguageCases = [
   { code: 'de', whiner: 'Jürgen Müller', offender: 'Karl Schmidt' },
   { code: 'fr', whiner: 'Étienne Dupont', offender: 'Jean Valjean' },
   { code: 'nl', whiner: 'Jan de Vries', offender: 'Piet Jansen' },
+  { code: 'hi', whiner: 'सीमा शर्मा', offender: 'राज कुमार' },
   { code: 'hmn', whiner: 'Nplooj Lis', offender: 'Muaj Vwj' },
   { code: 'fil', whiner: 'Juan Dela Cruz', offender: 'Jose Rizal' },
   { code: 'it', whiner: 'Giuseppe Verdi', offender: 'Luca Rossi' },

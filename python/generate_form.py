@@ -100,6 +100,13 @@ FONT_PROFILES: dict[str, FontProfile] = {
         regular_name="NotoSans-Regular",
         bold_name="NotoSans-Bold",
     ),
+    "hi": FontProfile(
+        regular_path=FONT_DIR / "NotoSansDevanagari-Regular.ttf",
+        bold_path=FONT_DIR / "NotoSansDevanagari-Bold.ttf",
+        regular_name="NotoSansDevanagari-Regular",
+        bold_name="NotoSansDevanagari-Bold",
+        encoding=0,
+    ),
     "lo": FontProfile(
         regular_path=FONT_DIR / "NotoSansLao-Regular.ttf",
         bold_path=FONT_DIR / "NotoSansLao-Bold.ttf",
@@ -1463,6 +1470,11 @@ def build_form(
         show_footer_text = translator.language not in footer_icon_only_languages
         footer_text = FOOTER_LINK_URL if show_footer_text else ""
 
+        footer_font_name = CURRENT_TEXT_FONT
+        latin_footer_languages = {"hi"}
+        if translator.language in latin_footer_languages:
+            footer_font_name = DEFAULT_TEXT_FONT
+
         if footer_text:
             insert_text(
                 page,
@@ -1473,7 +1485,7 @@ def build_form(
                     text_rect.y1,
                 ),
                 footer_text,
-                font=CURRENT_TEXT_FONT,
+                font=footer_font_name,
                 size=footer_font_size,
                 color=BLACK,
                 align=pm.TEXT_ALIGN_CENTER,
@@ -1486,7 +1498,7 @@ def build_form(
             if icon_size > 0 and available_width > 0:
                 if footer_text:
                     text_width = measure_text_width(
-                        footer_text, CURRENT_TEXT_FONT, footer_font_size
+                        footer_text, footer_font_name, footer_font_size
                     )
                     effective_text_width = min(text_width, available_width)
                     text_left = text_rect.x0 + (available_width - effective_text_width) / 2

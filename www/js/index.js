@@ -9,7 +9,7 @@ const rendererWorkerUrl = new URL("./pdf-renderer.worker.js", import.meta.url);
 const pdfJsModuleUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
 const pdfJsWorkerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
 // Languages whose PDFs rely on custom fonts that pdf.js cannot load inside a worker.
-const mainThreadRenderLanguages = new Set(["zh", "ja", "ko", "ru", "vi", "km", "lo", "th"]);
+const mainThreadRenderLanguages = new Set(["zh", "ja", "ko", "ru", "vi", "km", "lo", "th", "hi"]);
 const pdfJsStandardFontDataUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/standard_fonts/";
 const languageFontPaths = {
   ja: "fonts/NotoSansCJKjp-Regular.otf",
@@ -17,6 +17,7 @@ const languageFontPaths = {
   ko: "fonts/NotoSansCJKkr-Regular.otf",
   ru: "fonts/NotoSans-Regular.ttf",
   vi: "fonts/NotoSans-Regular.ttf",
+  hi: "fonts/NotoSansDevanagari-Regular.ttf",
   km: "fonts/NotoSansKhmer-Regular.ttf",
   lo: "fonts/NotoSansLao-Regular.ttf",
   th: "fonts/NotoSansThai-Regular.ttf"
@@ -38,6 +39,7 @@ const languageDisplayNames = {
   ja: "日本語",
   de: "Deutsch",
   fr: "Français",
+  hi: "हिन्दी",
   nl: "Nederlands",
   hmn: "Hmoob",
   fil: "Filipino",
