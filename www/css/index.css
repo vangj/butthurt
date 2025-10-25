@@ -79,14 +79,8 @@ html[lang="am"] body {
   font-family: "Noto Sans Ethiopic", "Helvetica Neue", Arial, sans-serif;
 }
 
-html[lang="sw"] body,
-html[lang="ha"] body,
 html[lang="yo"] body,
 html[lang="ig"] body,
-html[lang="om"] body,
-html[lang="zu"] body,
-html[lang="so"] body,
-html[lang="sn"] body,
 html[lang="idn"] body {
   font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
 }

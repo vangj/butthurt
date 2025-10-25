@@ -154,28 +154,6 @@ export const radioOnValueMap = {
       "maybe": "PEUT_TRE"
     }
   },
-  "ha": {
-    "injury_question1": {
-      "left": "Hagu",
-      "right": "Dama",
-      "both": "Duka"
-    },
-    "injury_question2": {
-      "yes": "Eh",
-      "no": "A_a",
-      "maybe": "Watakila"
-    },
-    "injury_question3": {
-      "yes": "Eh",
-      "no": "A_a",
-      "multiple": "Da_yawa"
-    },
-    "injury_question4": {
-      "yes": "Eh",
-      "no": "A_a",
-      "maybe": "Watakila"
-    }
-  },
   "hi": {
     "injury_question1": {
       "left": "Option",
@@ -396,28 +374,6 @@ export const radioOnValueMap = {
       "maybe": "MISSCHIEN"
     }
   },
-  "om": {
-    "injury_question1": {
-      "left": "Bitaa",
-      "right": "Mirga",
-      "both": "Lamaan"
-    },
-    "injury_question2": {
-      "yes": "Eeyyee",
-      "no": "Lakki",
-      "maybe": "Sambayyuu"
-    },
-    "injury_question3": {
-      "yes": "Eeyyee",
-      "no": "Lakki",
-      "multiple": "Baay_ee"
-    },
-    "injury_question4": {
-      "yes": "Eeyyee",
-      "no": "Lakki",
-      "maybe": "Sambayyuu"
-    }
-  },
   "pt-br": {
     "injury_question1": {
       "left": "ESQ",
@@ -460,72 +416,6 @@ export const radioOnValueMap = {
       "yes": "Option",
       "no": "Option_1",
       "maybe": "Option_2"
-    }
-  },
-  "sn": {
-    "injury_question1": {
-      "left": "Kuruboshwe",
-      "right": "Kurudyi",
-      "both": "Dzese"
-    },
-    "injury_question2": {
-      "yes": "Hongu",
-      "no": "Kwete",
-      "maybe": "Pamwe"
-    },
-    "injury_question3": {
-      "yes": "Hongu",
-      "no": "Kwete",
-      "multiple": "Yakawanda"
-    },
-    "injury_question4": {
-      "yes": "Hongu",
-      "no": "Kwete",
-      "maybe": "Pamwe"
-    }
-  },
-  "so": {
-    "injury_question1": {
-      "left": "Bidix",
-      "right": "Midig",
-      "both": "Labadaba"
-    },
-    "injury_question2": {
-      "yes": "Haa",
-      "no": "Maya",
-      "maybe": "Malaha"
-    },
-    "injury_question3": {
-      "yes": "Haa",
-      "no": "Maya",
-      "multiple": "Tiro_badan"
-    },
-    "injury_question4": {
-      "yes": "Haa",
-      "no": "Maya",
-      "maybe": "Malaha"
-    }
-  },
-  "sw": {
-    "injury_question1": {
-      "left": "Kushoto",
-      "right": "Kulia",
-      "both": "Vyote"
-    },
-    "injury_question2": {
-      "yes": "Ndiyo",
-      "no": "Hapana",
-      "maybe": "Labda"
-    },
-    "injury_question3": {
-      "yes": "Ndiyo",
-      "no": "Hapana",
-      "multiple": "Nyingi"
-    },
-    "injury_question4": {
-      "yes": "Ndiyo",
-      "no": "Hapana",
-      "maybe": "Labda"
     }
   },
   "th": {
@@ -614,28 +504,6 @@ export const radioOnValueMap = {
       "yes": "Option",
       "no": "Option_1",
       "maybe": "Option_2"
-    }
-  },
-  "zu": {
-    "injury_question1": {
-      "left": "Lokwesobunxele",
-      "right": "Lokwesokudla",
-      "both": "Omabili"
-    },
-    "injury_question2": {
-      "yes": "Yebo",
-      "no": "Cha",
-      "maybe": "Mhlawumbe"
-    },
-    "injury_question3": {
-      "yes": "Yebo",
-      "no": "Cha",
-      "multiple": "Eziningi"
-    },
-    "injury_question4": {
-      "yes": "Yebo",
-      "no": "Cha",
-      "maybe": "Mhlawumbe"
     }
   }
 };

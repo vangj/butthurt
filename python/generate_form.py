@@ -124,20 +124,6 @@ FONT_PROFILES: dict[str, FontProfile] = {
         bold_name="NotoSansEthiopic-Bold",
         encoding=0,
     ),
-    "sw": FontProfile(
-        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
-        regular_name="NotoSans-Regular",
-        bold_name="NotoSans-Bold",
-        encoding=0,
-    ),
-    "ha": FontProfile(
-        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
-        regular_name="NotoSans-Regular",
-        bold_name="NotoSans-Bold",
-        encoding=0,
-    ),
     "yo": FontProfile(
         regular_path=FONT_DIR / "NotoSans-Regular.ttf",
         bold_path=FONT_DIR / "NotoSans-Bold.ttf",
@@ -146,34 +132,6 @@ FONT_PROFILES: dict[str, FontProfile] = {
         encoding=0,
     ),
     "ig": FontProfile(
-        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
-        regular_name="NotoSans-Regular",
-        bold_name="NotoSans-Bold",
-        encoding=0,
-    ),
-    "om": FontProfile(
-        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
-        regular_name="NotoSans-Regular",
-        bold_name="NotoSans-Bold",
-        encoding=0,
-    ),
-    "zu": FontProfile(
-        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
-        regular_name="NotoSans-Regular",
-        bold_name="NotoSans-Bold",
-        encoding=0,
-    ),
-    "so": FontProfile(
-        regular_path=FONT_DIR / "NotoSans-Regular.ttf",
-        bold_path=FONT_DIR / "NotoSans-Bold.ttf",
-        regular_name="NotoSans-Regular",
-        bold_name="NotoSans-Bold",
-        encoding=0,
-    ),
-    "sn": FontProfile(
         regular_path=FONT_DIR / "NotoSans-Regular.ttf",
         bold_path=FONT_DIR / "NotoSans-Bold.ttf",
         regular_name="NotoSans-Regular",
@@ -242,9 +200,6 @@ LAYOUT_OVERRIDES: dict[str, LayoutSpec] = {
     ),
     "idn": LayoutSpec(
         option_font_size=7.0,
-    ),
-    "sn": LayoutSpec(
-        title_font_size=28.0,
     ),
 }
 CURRENT_LAYOUT = DEFAULT_LAYOUT
